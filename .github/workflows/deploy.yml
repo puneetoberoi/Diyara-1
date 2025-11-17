@@ -38,7 +38,7 @@ jobs:
               "react-dom": "^18.2.0",
               "react-markdown": "^9.0.0",
               "rehype-highlight": "^7.0.0",
-              "@google/generative-ai": "^0.21.0"
+              "@google/genai": "^0.21.0"
             },
             "devDependencies": {
               "@types/node": "^20.0.0",
