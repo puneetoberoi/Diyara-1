@@ -21,10 +21,33 @@ jobs:
         with:
           node-version: '20'
           
+      - name: Check file structure
+        run: |
+          echo "=== Current structure ==="
+          ls -la
+          echo "=== Checking for index.html ==="
+          cat index.html || echo "No index.html found"
+          
       - name: Install dependencies
         run: |
           npm install react react-dom
           npm install --save-dev typescript vite @vitejs/plugin-react
+          
+      - name: Create package.json
+        run: |
+          cat > package.json << 'EOF'
+          {
+            "name": "diyara",
+            "private": true,
+            "version": "0.0.0",
+            "type": "module",
+            "scripts": {
+              "dev": "vite",
+              "build": "vite build",
+              "preview": "vite preview"
+            }
+          }
+          EOF
           
       - name: Create vite config
         run: |
@@ -34,26 +57,36 @@ jobs:
           
           export default defineConfig({
             plugins: [react()],
-            base: '/Diyara-1/',
-            build: {
-              outDir: 'dist'
-            }
+            base: '/Diyara-1/'
           })
           EOF
           
-      - name: Update index.html
-        run: |
-          sed -i 's|src="/index.tsx"|src="/src/index.tsx"|g' index.html
-          
-      - name: Create src directory and move files
+      - name: Organize files into src
         run: |
           mkdir -p src
-          mv *.tsx src/ 2>/dev/null || true
-          mv *.ts src/ 2>/dev/null || true
-          mv components src/ 2>/dev/null || true
-          mv data src/ 2>/dev/null || true
-          mv hooks src/ 2>/dev/null || true
-          mv utils src/ 2>/dev/null || true
+          # Move TypeScript files if they exist
+          find . -maxdepth 1 -name "*.tsx" -o -name "*.ts" | grep -v node_modules | xargs -I {} mv {} src/ 2>/dev/null || true
+          # Move folders if they exist
+          [ -d "components" ] && mv components src/ || true
+          [ -d "data" ] && mv data src/ || true
+          [ -d "hooks" ] && mv hooks src/ || true
+          [ -d "utils" ] && mv utils src/ || true
+          
+      - name: Update index.html script path
+        run: |
+          if [ -f "index.html" ]; then
+            sed -i 's|src="/index.tsx"|src="/src/index.tsx"|g' index.html
+            sed -i 's|src="./index.tsx"|src="/src/index.tsx"|g' index.html
+          fi
+          
+      - name: Show final structure
+        run: |
+          echo "=== Final structure ==="
+          ls -la
+          echo "=== src folder ==="
+          ls -la src/
+          echo "=== index.html content ==="
+          cat index.html
           
       - name: Build
         run: npm run build
