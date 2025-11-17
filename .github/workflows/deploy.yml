@@ -127,7 +127,16 @@ jobs:
           # Replace process.env.API_KEY with localStorage check
           find src/components -type f -name "*.tsx" -exec sed -i \
             's/process\.env\.API_KEY as string/localStorage.getItem("GEMINI_API_KEY") || ""/g' {} \;
-      
+
+      - name: Disable image generation (requires billing)
+        run: |
+          # Comment out image generation code in MissionView
+          find src/components -name "MissionView.tsx" -exec sed -i \
+            '/const imagePrompt = /,/setIsImageLoading(false);/s/^/\/\/ /' {} \;
+          
+          # Set a placeholder image instead
+          find src/components -name "MissionView.tsx" -exec sed -i \
+            's/setLessonImage(`data:image\/png;base64,\${base64ImageBytes}`);/setLessonImage("data:image\/svg+xml,%3Csvg xmlns='\''http:\/\/www.w3.org\/2000\/svg'\'' viewBox='\''0 0 800 450'\''%3E%3Crect fill='\''%236366f1'\'' width='\''800'\'' height='\''450'\''\/\gt;%3Ctext x='\''400'\'' y='\''225'\'' font-size='\''60'\'' fill='\''white'\'' text-anchor='\''middle'\''%3E🚀 Mission: ${mission.title}%3C\/text%3E%3C\/svg%3E"); setIsImageLoading(false);/' {} \;
       - name: Create window type definitions
         run: |
           cat > src/window.d.ts << 'EOF'
