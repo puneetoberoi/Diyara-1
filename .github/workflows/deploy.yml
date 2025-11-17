@@ -386,7 +386,7 @@ jobs:
                               3
                             </span>
                             <div>
-                              <p className="text-white font-medium text-sm mb-1">Start Using Diyara!</p>
+                              <p className="text-white font-medium text-sm mb-1">Start Working with Diyara!</p>
                               <p className="text-slate-400 text-xs">
                                 Your AI companion will be ready to help you organize your thoughts
                               </p>
