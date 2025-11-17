@@ -121,6 +121,12 @@ jobs:
           [ -d "data" ] && mv data src/ || true
           [ -d "hooks" ] && mv hooks src/ || true
           [ -d "utils" ] && mv utils src/ || true
+
+      - name: Fix API key references
+        run: |
+          # Replace process.env.API_KEY with localStorage check
+          find src/components -type f -name "*.tsx" -exec sed -i \
+            's/process\.env\.API_KEY as string/localStorage.getItem("GEMINI_API_KEY") || ""/g' {} \;
       
       - name: Create window type definitions
         run: |
