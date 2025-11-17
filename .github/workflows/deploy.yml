@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '20'
       
-      # Create package.json with the mock package
+      # Create package.json
       - name: Create package.json
         run: |
           cat > package.json << 'EOF'
@@ -55,20 +55,20 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      # Create the mock Google Generative AI package
-      - name: Create mock @google/generative-ai package
+      # Create the mock @google/genai package (correct package name!)
+      - name: Create mock @google/genai package
         run: |
-          mkdir -p node_modules/@google/generative-ai
-          cat > node_modules/@google/generative-ai/package.json << 'EOF'
+          mkdir -p node_modules/@google/genai
+          cat > node_modules/@google/genai/package.json << 'EOF'
           {
-            "name": "@google/generative-ai",
+            "name": "@google/genai",
             "version": "0.0.0-mock",
             "main": "index.js",
             "type": "module"
           }
           EOF
           
-          cat > node_modules/@google/generative-ai/index.js << 'EOF'
+          cat > node_modules/@google/genai/index.js << 'EOF'
           export class GoogleGenerativeAI {
             constructor(apiKey) {
               this.apiKey = apiKey;
