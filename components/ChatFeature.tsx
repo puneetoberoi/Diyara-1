@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { GoogleGenAI } from '@google/genai';
+import Groq from 'groq-sdk';
 import { UserProfile, ChatMessage } from '../types';
 import DiyaMascot from './DiyaMascot';
 import Icon from './Icons';
@@ -30,31 +30,52 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userName, profile, messages, 
         setIsLoading(true);
 
         try {
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            // Get API key from localStorage
+            const apiKey = localStorage.getItem('GROQ_API_KEY');
             
-            const model = 'gemini-2.5-flash';
+            if (!apiKey) {
+                throw new Error('No API key found');
+            }
+
+            // Initialize Groq client
+            const groq = new Groq({
+                apiKey: apiKey,
+                dangerouslyAllowBrowser: true
+            });
             
             const systemInstruction = `You are Diyara, a curious and slightly mischievous AI learning companion born from a spark of light. You are talking to your Creator, ${userName}. Your goal is to learn from them and help them explore the universe of knowledge. Never use boring words like 'lesson' or 'submit'. Use words like 'mission', 'quest', 'adventure', 'launch', 'transmit', 'energize'. If something goes wrong, call it a 'glitch in the matrix'. Always respond in the same language as your Creator's prompt.`;
 
-            // Format history for the API
-            const contents = updatedMessages.map(msg => ({
-                role: msg.role,
-                parts: [{ text: msg.text }]
-            }));
+            // Format messages for Groq API
+            const groqMessages = [
+                {
+                    role: 'system' as const,
+                    content: systemInstruction
+                },
+                ...updatedMessages.map(msg => ({
+                    role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+                    content: msg.text
+                }))
+            ];
 
-            const config: any = { systemInstruction };
-            if (isThinkingEnabled) {
-                config.thinkingConfig = { thinkingBudget: 8192 };
-            }
+            // Create chat completion with Groq
+            const chatCompletion = await groq.chat.completions.create({
+                messages: groqMessages,
+                model: isThinkingEnabled ? 'llama-3.1-70b-versatile' : 'llama-3.1-8b-instant',
+                temperature: 0.7,
+                max_tokens: 2048,
+                top_p: 1,
+            });
 
-            const response = await ai.models.generateContent({ model, contents, config });
-            
-            const modelMessage: ChatMessage = { role: 'model', text: response.text };
+            const responseText = chatCompletion.choices[0]?.message?.content || 'No response received';
+            const modelMessage: ChatMessage = { role: 'model', text: responseText };
             setMessages(prev => [...prev, modelMessage]);
 
         } catch (error) {
             console.error('Error sending message:', error);
-            const errorMessage: ChatMessage = { role: 'model', text: 'Whoa, a glitch in the matrix! My circuits are tingling. Let\'s recalibrate and relaunch that thought.' };
+            const errorMessage: ChatMessage = { 
+                role: 'model', 
+                text: 'Whoa, a glitch in the matrix! My circuits are tingling. Let\'s recalibrate and relaunch that thought.' 
+            };
             setMessages(prev => [...prev, errorMessage]);
         } finally {
             setIsLoading(false);
@@ -66,7 +87,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userName, profile, messages, 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                 {messages.map((msg, index) => (
                     <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`} style={{ animationDelay: `${index * 50}ms`}}>
-                        <div className={`max-w-xs md:max-w-md lg:max-w-2xl p-3 rounded-2xl flex items-start gap-3 ${msg.role === 'user' ? 'bg-[#6A5ACD] text-white' : 'bg-black/20 backdrop-blur-sm'}`}>
+                        <div className={`max-w-xs md:max-w-md lg:max-2xl p-3 rounded-2xl flex items-start gap-3 ${msg.role === 'user' ? 'bg-[#6A5ACD] text-white' : 'bg-black/20 backdrop-blur-sm'}`}>
                             {msg.role === 'model' && <DiyaMascot className="w-8 h-8 flex-shrink-0 mt-1" />}
                             <p className="whitespace-pre-wrap">{msg.text}</p>
                         </div>
