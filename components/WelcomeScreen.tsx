@@ -23,44 +23,44 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
-        <div className="max-w-3xl w-full">
+      <div className="min-h-screen max-h-screen overflow-y-auto bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4 py-8">
+        <div className="max-w-2xl w-full my-8">
           {/* Main Welcome Card */}
-          <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl p-8 md:p-12 border border-slate-700 shadow-2xl">
+          <div className="bg-slate-900/80 backdrop-blur-xl rounded-3xl p-6 md:p-10 border border-slate-700 shadow-2xl">
             {/* Header */}
-            <div className="text-center mb-8">
-              <div className="text-6xl mb-4 animate-bounce">🌟</div>
-              <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-3 animate-bounce">🌟</div>
+              <h1 className="text-3xl md:text-4xl font-bold text-white mb-3">
                 Welcome to <span className="text-yellow-400">Diyara</span>!
               </h1>
-              <p className="text-xl text-slate-300">
+              <p className="text-lg md:text-xl text-slate-300">
                 Your AI Companion for Organizing Thoughts
               </p>
             </div>
 
             {/* Description */}
-            <div className="bg-slate-800/50 rounded-xl p-6 mb-8 border border-slate-700">
-              <p className="text-slate-300 text-center leading-relaxed">
+            <div className="bg-slate-800/50 rounded-xl p-4 mb-6 border border-slate-700">
+              <p className="text-slate-300 text-center text-sm md:text-base leading-relaxed">
                 An AI's first thought is a jumble of data. Help it find clarity and structure
                 with the power of Groq AI - completely <span className="text-yellow-400 font-semibold">FREE</span> and lightning fast! ⚡
               </p>
             </div>
 
             {/* Setup Steps */}
-            <div className="space-y-4 mb-8">
-              <h3 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                <span className="text-2xl">🚀</span>
+            <div className="space-y-3 mb-6">
+              <h3 className="text-base md:text-lg font-semibold text-white mb-3 flex items-center gap-2">
+                <span className="text-xl">🚀</span>
                 Quick Setup (30 seconds):
               </h3>
               
-              <div className="space-y-3">
-                <div className="flex items-start gap-4 bg-slate-800/30 p-4 rounded-lg border border-slate-700">
-                  <span className="flex-shrink-0 w-8 h-8 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center">
+              <div className="space-y-2">
+                <div className="flex items-start gap-3 bg-slate-800/30 p-3 rounded-lg border border-slate-700">
+                  <span className="flex-shrink-0 w-7 h-7 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center text-sm">
                     1
                   </span>
                   <div>
-                    <p className="text-white font-medium mb-1">Get Your Free Groq API Key</p>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-white font-medium text-sm mb-1">Get Your Free Groq API Key</p>
+                    <p className="text-slate-400 text-xs">
                       Visit{' '}
                       <a 
                         href="https://console.groq.com/" 
@@ -75,25 +75,25 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 bg-slate-800/30 p-4 rounded-lg border border-slate-700">
-                  <span className="flex-shrink-0 w-8 h-8 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center">
+                <div className="flex items-start gap-3 bg-slate-800/30 p-3 rounded-lg border border-slate-700">
+                  <span className="flex-shrink-0 w-7 h-7 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center text-sm">
                     2
                   </span>
                   <div>
-                    <p className="text-white font-medium mb-1">Enter Your Key</p>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-white font-medium text-sm mb-1">Enter Your Key</p>
+                    <p className="text-slate-400 text-xs">
                       Copy the key and paste it in the next screen
                     </p>
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4 bg-slate-800/30 p-4 rounded-lg border border-slate-700">
-                  <span className="flex-shrink-0 w-8 h-8 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center">
+                <div className="flex items-start gap-3 bg-slate-800/30 p-3 rounded-lg border border-slate-700">
+                  <span className="flex-shrink-0 w-7 h-7 bg-yellow-500 text-black font-bold rounded-full flex items-center justify-center text-sm">
                     3
                   </span>
                   <div>
-                    <p className="text-white font-medium mb-1">Start Using Diyara!</p>
-                    <p className="text-slate-400 text-sm">
+                    <p className="text-white font-medium text-sm mb-1">Start Using Diyara!</p>
+                    <p className="text-slate-400 text-xs">
                       Your AI companion will be ready to help you organize your thoughts
                     </p>
                   </div>
@@ -101,27 +101,13 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
               </div>
             </div>
 
-            {/* Why Groq Box */}
-            <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-700/50 rounded-lg p-4 mb-8">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">⚡</span>
-                <div>
-                  <p className="text-purple-300 font-medium mb-1">Why Groq?</p>
-                  <p className="text-purple-200 text-sm">
-                    Groq is blazing fast, completely free (14,400 requests/day), and uses powerful models like Llama 3! 
-                    No credit card needed!
-                  </p>
-                </div>
-              </div>
-            </div>
-
             {/* Privacy Note */}
-            <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-4 mb-8">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">🔒</span>
+            <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 mb-6">
+              <div className="flex items-start gap-2">
+                <span className="text-xl">🔒</span>
                 <div>
-                  <p className="text-blue-300 font-medium mb-1">Privacy First</p>
-                  <p className="text-blue-200 text-sm">
+                  <p className="text-blue-300 font-medium text-sm mb-1">Privacy First</p>
+                  <p className="text-blue-200 text-xs">
                     Your API key is stored only in your browser's local storage. 
                     It never leaves your device and is completely private to you.
                   </p>
@@ -132,13 +118,13 @@ export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
             {/* CTA Button */}
             <button
               onClick={handleGetStarted}
-              className="w-full py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-bold text-lg rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+              className="w-full py-3 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-black font-bold text-base md:text-lg rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
             >
               Get Started - It's Free! 🚀
             </button>
 
             {/* Footer Note */}
-            <p className="text-center text-slate-500 text-sm mt-6">
+            <p className="text-center text-slate-500 text-xs mt-4">
               Made with ❤️ by a 13-year-old developer
             </p>
           </div>
