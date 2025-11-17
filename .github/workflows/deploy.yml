@@ -12,8 +12,6 @@ permissions:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
     steps:
       - uses: actions/checkout@v4
       
@@ -22,7 +20,6 @@ jobs:
         with:
           node-version: '20'
       
-      # Create package.json
       - name: Create package.json
         run: |
           cat > package.json << 'EOF'
@@ -40,7 +37,8 @@ jobs:
               "react": "^18.2.0",
               "react-dom": "^18.2.0",
               "react-markdown": "^9.0.0",
-              "rehype-highlight": "^7.0.0"
+              "rehype-highlight": "^7.0.0",
+              "@google/generative-ai": "^0.21.0"
             },
             "devDependencies": {
               "@types/node": "^20.0.0",
@@ -53,137 +51,9 @@ jobs:
           }
           EOF
       
-      # Install dependencies
       - name: Install dependencies
         run: npm install
       
-      # Create the complete mock @google/genai package with ALL exports
-      - name: Create mock @google/genai package
-        run: |
-          mkdir -p node_modules/@google/genai
-          cat > node_modules/@google/genai/package.json << 'EOF'
-          {
-            "name": "@google/genai",
-            "version": "0.0.0-mock",
-            "main": "index.js",
-            "type": "module"
-          }
-          EOF
-          
-          cat > node_modules/@google/genai/index.js << 'EOF'
-          // Complete mock implementation for @google/genai
-          
-          export class GoogleGenAI {
-            constructor(config) {
-              this.config = config;
-            }
-            
-            models = {
-              generateContent: async (params) => {
-                throw new Error('API key required - please add your Gemini API key at runtime');
-              },
-              generateContentStream: async (params) => {
-                throw new Error('API key required - please add your Gemini API key at runtime');
-              }
-            };
-            
-            live = {
-              connect: async (params) => {
-                throw new Error('API key required - please add your Gemini API key at runtime');
-              }
-            };
-          }
-          
-          // Type utilities
-          export const Type = {
-            STRING: "STRING",
-            NUMBER: "NUMBER",
-            INTEGER: "INTEGER",
-            BOOLEAN: "BOOLEAN",
-            ARRAY: "ARRAY",
-            OBJECT: "OBJECT"
-          };
-          
-          // Modality enum
-          export const Modality = {
-            TEXT: "TEXT",
-            AUDIO: "AUDIO",
-            VIDEO: "VIDEO",
-            IMAGE: "IMAGE"
-          };
-          
-          // LiveServerMessage class
-          export class LiveServerMessage {
-            constructor(data) {
-              this.data = data;
-            }
-          }
-          
-          // Blob class for binary data
-          export class Blob {
-            constructor(data, mimeType) {
-              this.data = data;
-              this.mimeType = mimeType;
-            }
-          }
-          
-          // Content and Part classes
-          export class Content {
-            constructor(parts, role = 'user') {
-              this.parts = parts;
-              this.role = role;
-            }
-          }
-          
-          export class Part {
-            constructor(data) {
-              Object.assign(this, data);
-            }
-            
-            static fromText(text) {
-              return new Part({ text });
-            }
-            
-            static fromInlineData(data, mimeType) {
-              return new Part({ inlineData: { data, mimeType } });
-            }
-          }
-          
-          // Harm categories
-          export const HarmCategory = {
-            HARM_CATEGORY_HARASSMENT: "HARM_CATEGORY_HARASSMENT",
-            HARM_CATEGORY_HATE_SPEECH: "HARM_CATEGORY_HATE_SPEECH",
-            HARM_CATEGORY_SEXUALLY_EXPLICIT: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
-            HARM_CATEGORY_DANGEROUS_CONTENT: "HARM_CATEGORY_DANGEROUS_CONTENT"
-          };
-          
-          // Harm block thresholds
-          export const HarmBlockThreshold = {
-            BLOCK_NONE: "BLOCK_NONE",
-            BLOCK_ONLY_HIGH: "BLOCK_ONLY_HIGH",
-            BLOCK_MEDIUM_AND_ABOVE: "BLOCK_MEDIUM_AND_ABOVE",
-            BLOCK_LOW_AND_ABOVE: "BLOCK_LOW_AND_ABOVE"
-          };
-          
-          // Schema class
-          export class Schema {
-            constructor(config) {
-              Object.assign(this, config);
-            }
-          }
-          
-          // GenerateContentConfig
-          export class GenerateContentConfig {
-            constructor(config) {
-              Object.assign(this, config);
-            }
-          }
-          
-          // Also export GoogleGenerativeAI as an alias
-          export const GoogleGenerativeAI = GoogleGenAI;
-          EOF
-      
-      # Create TypeScript config
       - name: Create tsconfig.json
         run: |
           cat > tsconfig.json << 'EOF'
@@ -224,7 +94,6 @@ jobs:
           }
           EOF
       
-      # Create vite config
       - name: Create vite config
         run: |
           cat > vite.config.ts << 'EOF'
@@ -235,28 +104,24 @@ jobs:
             plugins: [react()],
             base: '/Diyara-1/',
             define: {
-              'process.env': {}
+              'process.env.GEMINI_API_KEY': JSON.stringify(process.env.GEMINI_API_KEY || '')
             }
           })
           EOF
       
-      # Organize files
       - name: Organize files into src
         run: |
           mkdir -p src
-          # Move TypeScript files (exclude config files)
           for file in *.tsx *.ts; do
             if [ -f "$file" ] && [ "$file" != "vite.config.ts" ]; then
               mv "$file" src/ 2>/dev/null || true
             fi
           done
-          # Move folders
           [ -d "components" ] && mv components src/ || true
           [ -d "data" ] && mv data src/ || true
           [ -d "hooks" ] && mv hooks src/ || true
           [ -d "utils" ] && mv utils src/ || true
       
-      # Create window type definitions
       - name: Create window type definitions
         run: |
           cat > src/window.d.ts << 'EOF'
@@ -272,15 +137,15 @@ jobs:
           }
           EOF
       
-      # Update index.html
       - name: Update index.html
         run: |
           sed -i '/<script type="importmap">/,/<\/script>/d' index.html
           sed -i 's|<script type="module" src="/index.tsx"></script>|<script type="module" src="/src/index.tsx"></script>|g' index.html
           sed -i 's|<script type="module" src="index.tsx"></script>|<script type="module" src="/src/index.tsx"></script>|g' index.html
       
-      # Build
       - name: Build
+        env:
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: npm run build
         
       - name: Upload artifact
