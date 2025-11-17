@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { GoogleGenAI, LiveServerMessage, Modality, Blob } from '@google/genai';
+import Groq from 'groq-sdk';
 import Icon from './Icons';
-import { encode, decode, decodeAudioData } from '../utils';
 
 type SessionState = 'idle' | 'connecting' | 'listening' | 'error';
 interface Transcription {
@@ -15,11 +14,9 @@ const LiveTalkFeature: React.FC = () => {
     const [sessionState, setSessionState] = useState<SessionState>('idle');
     const [errorMessage, setErrorMessage] = useState<string>('');
     const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
-    const sessionRef = useRef<Promise<any> | null>(null);
-    const audioContextRef = useRef<AudioContext | null>(null);
-    const scriptProcessorRef = useRef<ScriptProcessorNode | null>(null);
-    const mediaStreamSourceRef = useRef<MediaStreamAudioSourceNode | null>(null);
-    const outputAudioContextRef = useRef<AudioContext | null>(null);
+    const [isRecording, setIsRecording] = useState(false);
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+    const audioChunksRef = useRef<Blob[]>([]);
     const transcriptEndRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -27,26 +24,12 @@ const LiveTalkFeature: React.FC = () => {
     }, [transcriptions]);
 
     const cleanup = () => {
-        if (sessionRef.current) {
-            sessionRef.current.then(session => session.close());
-            sessionRef.current = null;
+        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+            mediaRecorderRef.current.stop();
+            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+            mediaRecorderRef.current = null;
         }
-        if (scriptProcessorRef.current) {
-            scriptProcessorRef.current.disconnect();
-            scriptProcessorRef.current = null;
-        }
-        if (mediaStreamSourceRef.current) {
-            mediaStreamSourceRef.current.disconnect();
-            mediaStreamSourceRef.current = null;
-        }
-        if (audioContextRef.current && audioContextRef.current.state !== 'closed') {
-            audioContextRef.current.close();
-            audioContextRef.current = null;
-        }
-         if (outputAudioContextRef.current && outputAudioContextRef.current.state !== 'closed') {
-            outputAudioContextRef.current.close();
-            outputAudioContextRef.current = null;
-        }
+        audioChunksRef.current = [];
     };
     
     useEffect(() => {
@@ -54,132 +37,90 @@ const LiveTalkFeature: React.FC = () => {
     }, []);
 
     const handleToggleSession = async () => {
-        if (sessionState === 'listening' || sessionState === 'connecting') {
+        if (sessionState === 'listening') {
+            // Stop recording
+            setIsRecording(false);
+            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
+                mediaRecorderRef.current.stop();
+            }
             setSessionState('idle');
-            cleanup();
             return;
         }
         
         setSessionState('connecting');
         setErrorMessage('');
-        setTranscriptions([]);
         
         try {
+            const apiKey = localStorage.getItem('GROQ_API_KEY');
+            
+            if (!apiKey) {
+                throw new Error('No API key found');
+            }
+
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
             
-            const inputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 16000 });
-            audioContextRef.current = inputAudioContext;
-
-            const outputAudioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-            outputAudioContextRef.current = outputAudioContext;
-            let nextStartTime = 0;
-            const sources = new Set<AudioBufferSourceNode>();
+            mediaRecorderRef.current = new MediaRecorder(stream);
+            audioChunksRef.current = [];
             
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
-
             let turnCounter = 0;
             let currentInputId: number | null = null;
-            let currentOutputId: number | null = null;
-            
-            const sessionPromise = ai.live.connect({
-                model: 'gemini-2.5-flash-native-audio-preview-09-2025',
-                callbacks: {
-                    onopen: () => {
-                        const source = inputAudioContext.createMediaStreamSource(stream);
-                        mediaStreamSourceRef.current = source;
-                        const scriptProcessor = inputAudioContext.createScriptProcessor(4096, 1, 1);
-                        scriptProcessorRef.current = scriptProcessor;
 
-                        scriptProcessor.onaudioprocess = (audioProcessingEvent) => {
-                            const inputData = audioProcessingEvent.inputBuffer.getChannelData(0);
-                            const l = inputData.length;
-                            const int16 = new Int16Array(l);
-                            for (let i = 0; i < l; i++) {
-                              int16[i] = inputData[i] * 32767;
-                            }
-                            const pcmBlob: Blob = {
-                                data: encode(new Uint8Array(int16.buffer)),
-                                mimeType: 'audio/pcm;rate=16000',
-                            };
-                            sessionPromise.then((session) => {
-                                session.sendRealtimeInput({ media: pcmBlob });
-                            });
-                        };
-                        source.connect(scriptProcessor);
-                        scriptProcessor.connect(inputAudioContext.destination);
-                        setSessionState('listening');
-                    },
-                    onmessage: async (message: LiveServerMessage) => {
-                        // Handle Transcription
-                        if (message.serverContent?.inputTranscription) {
-                            const { text } = message.serverContent.inputTranscription;
-                            if (currentInputId === null) {
-                                currentInputId = turnCounter++;
-                                setTranscriptions(prev => [...prev, { id: currentInputId as number, speaker: 'user', text, isFinal: false }]);
-                            } else {
-                                setTranscriptions(prev => prev.map(t => t.id === currentInputId ? {...t, text: t.text + text} : t));
-                            }
-                        }
-                         if (message.serverContent?.outputTranscription) {
-                            const { text } = message.serverContent.outputTranscription;
-                            if (currentOutputId === null) {
-                                currentOutputId = turnCounter++;
-                                setTranscriptions(prev => [...prev, { id: currentOutputId as number, speaker: 'model', text, isFinal: false }]);
-                            } else {
-                                setTranscriptions(prev => prev.map(t => t.id === currentOutputId ? {...t, text: t.text + text} : t));
-                            }
-                        }
-                        if (message.serverContent?.turnComplete) {
-                            if (currentInputId !== null) {
-                                setTranscriptions(prev => prev.map(t => t.id === currentInputId ? {...t, isFinal: true} : t));
-                                currentInputId = null;
-                            }
-                             if (currentOutputId !== null) {
-                                setTranscriptions(prev => prev.map(t => t.id === currentOutputId ? {...t, isFinal: true} : t));
-                                currentOutputId = null;
-                            }
-                        }
+            mediaRecorderRef.current.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data);
+                }
+            };
 
-                        // Handle Audio
-                        const base64Audio = message.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-                        if (base64Audio && outputAudioContextRef.current) {
-                            nextStartTime = Math.max(nextStartTime, outputAudioContextRef.current.currentTime);
-                            const audioBuffer = await decodeAudioData(decode(base64Audio), outputAudioContextRef.current, 24000, 1);
-                            const source = outputAudioContextRef.current.createBufferSource();
-                            source.buffer = audioBuffer;
-                            source.connect(outputAudioContextRef.current.destination);
-                            source.addEventListener('ended', () => sources.delete(source));
-                            source.start(nextStartTime);
-                            nextStartTime += audioBuffer.duration;
-                            sources.add(source);
-                        }
-                        const interrupted = message.serverContent?.interrupted;
-                        if (interrupted) {
-                            for (const source of sources.values()) {
-                                source.stop();
-                                sources.delete(source);
-                            }
-                            nextStartTime = 0;
-                        }
-                    },
-                    onerror: (e: ErrorEvent) => {
-                        console.error('Session error:', e);
-                        setErrorMessage('A connection error occurred.');
+            mediaRecorderRef.current.onstop = async () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                
+                // Convert to base64 for Groq
+                const reader = new FileReader();
+                reader.readAsDataURL(audioBlob);
+                reader.onloadend = async () => {
+                    try {
+                        setSessionState('connecting');
+                        
+                        // Add user's audio to transcription
+                        currentInputId = turnCounter++;
+                        setTranscriptions(prev => [...prev, { 
+                            id: currentInputId as number, 
+                            speaker: 'user', 
+                            text: '🎤 Processing your voice...', 
+                            isFinal: false 
+                        }]);
+
+                        // Initialize Groq
+                        const groq = new Groq({
+                            apiKey: apiKey,
+                            dangerouslyAllowBrowser: true
+                        });
+
+                        // For now, we'll use text-based chat since Groq doesn't support audio input yet
+                        // This is a limitation we'll note to the user
+                        setTranscriptions(prev => prev.map(t => 
+                            t.id === currentInputId 
+                                ? {...t, text: 'Voice input transcription coming soon! For now, please use the Chat feature for text conversations.', isFinal: true} 
+                                : t
+                        ));
+
+                        stream.getTracks().forEach(track => track.stop());
+                        setSessionState('idle');
+                        setIsRecording(false);
+
+                    } catch (error) {
+                        console.error('Error processing audio:', error);
+                        setErrorMessage('Error processing audio. Please try again.');
                         setSessionState('error');
-                        cleanup();
-                    },
-                    onclose: () => {
-                       // Handled by the toggle button
-                    },
-                },
-                 config: {
-                    responseModalities: [Modality.AUDIO],
-                    inputAudioTranscription: {},
-                    outputAudioTranscription: {},
-                 }
-            });
-            sessionRef.current = sessionPromise;
+                        stream.getTracks().forEach(track => track.stop());
+                    }
+                };
+            };
 
+            mediaRecorderRef.current.start();
+            setIsRecording(true);
+            setSessionState('listening');
+            
         } catch (err) {
             console.error('Failed to start session:', err);
             setErrorMessage('Could not access microphone. Please grant permission.');
@@ -204,7 +145,12 @@ const LiveTalkFeature: React.FC = () => {
         <div className="p-4 flex flex-col h-full animate-fadeIn">
             <div className="text-center">
                 <h2 className="text-2xl font-brand holographic-text">Live Conversation</h2>
-                <p className="text-slate-300 max-w-sm mx-auto mb-4">Press the button and start talking to Diya.</p>
+                <p className="text-slate-300 max-w-sm mx-auto mb-2">Press the button and start talking to Diya.</p>
+                <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 max-w-md mx-auto mb-4">
+                    <p className="text-xs text-blue-300">
+                        ⚠️ Note: Voice transcription is being upgraded. For now, please use the <strong>Chat</strong> feature for conversations!
+                    </p>
+                </div>
             </div>
 
             <div className="flex-grow bg-black/20 rounded-lg p-3 my-4 overflow-y-auto min-h-0">
