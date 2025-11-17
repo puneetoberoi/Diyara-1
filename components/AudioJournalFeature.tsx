@@ -1,8 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
-import { GoogleGenAI, Type } from '@google/genai';
+import Groq from 'groq-sdk';
 import { AudioEntry } from '../types';
 import Icon from './Icons';
-import { fileToBase64 } from '../utils';
 
 interface AudioJournalProps {
     entries: AudioEntry[];
@@ -53,34 +52,52 @@ const AudioJournalFeature: React.FC<AudioJournalProps> = ({ entries, onEntriesUp
         const audioFile = new File([audioBlob], "recording.webm", { type: "audio/webm" });
 
         try {
-            const base64Audio = await fileToBase64(audioFile);
-            const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+            const apiKey = localStorage.getItem('GROQ_API_KEY');
             
-            const prompt = "The following is a transcript of an audio journal entry. Based on the content, provide a short, fitting title (5 words or less) and the full transcript. Respond in JSON format.";
+            if (!apiKey) {
+                throw new Error('No API key found');
+            }
 
-            const response = await ai.models.generateContent({
-                model: 'gemini-2.5-flash',
-                contents: [
-                    { parts: [{ text: prompt }] },
-                    { parts: [{ inlineData: { mimeType: 'audio/webm', data: base64Audio } }] }
-                ],
-                config: {
-                    responseMimeType: 'application/json',
-                    responseSchema: {
-                        type: Type.OBJECT,
-                        properties: {
-                            title: { type: Type.STRING },
-                            transcript: { type: Type.STRING },
-                        },
-                    },
-                }
+            // Initialize Groq
+            const groq = new Groq({
+                apiKey: apiKey,
+                dangerouslyAllowBrowser: true
             });
-            
-            const result = JSON.parse(response.text.trim());
+
+            // Step 1: Transcribe audio using Groq Whisper
+            const transcription = await groq.audio.transcriptions.create({
+                file: audioFile,
+                model: "whisper-large-v3",
+                response_format: "json",
+                language: "en",
+            });
+
+            const transcript = transcription.text;
+
+            // Step 2: Generate title from transcript using Groq chat
+            const chatCompletion = await groq.chat.completions.create({
+                messages: [
+                    {
+                        role: "system",
+                        content: "You are a helpful assistant that creates short, fitting titles for journal entries. Respond with ONLY the title, nothing else. Keep it to 5 words or less."
+                    },
+                    {
+                        role: "user",
+                        content: `Create a short title (5 words or less) for this journal entry:\n\n${transcript}`
+                    }
+                ],
+                model: "llama-3.1-8b-instant",
+                temperature: 0.7,
+                max_tokens: 20,
+            });
+
+            const title = chatCompletion.choices[0]?.message?.content?.trim() || "Untitled Entry";
+
+            // Create new entry
             const newEntry: AudioEntry = {
                 id: `audio_${Date.now()}`,
-                title: result.title,
-                transcript: result.transcript,
+                title: title,
+                transcript: transcript,
                 audioSrc: URL.createObjectURL(audioBlob),
                 timestamp: Date.now(),
             };
