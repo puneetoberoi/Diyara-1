@@ -16,7 +16,9 @@ import Header from './components/Header';
 import BottomNav from './components/BottomNav';
 import MusicConsentModal from './components/MusicConsentModal';
 import ParentDashboard from './components/ParentDashboard';
-// NEW IMPORTS - Add these two lines
+// NEW IMPORTS
+import ProfileSelection, { FamilyProfile } from './components/ProfileSelection';
+import ProfileWelcome from './components/ProfileWelcome';
 import WelcomeScreen from './components/WelcomeScreen';
 import ApiKeyModal from './components/ApiKeyModal';
 
@@ -24,6 +26,8 @@ import ApiKeyModal from './components/ApiKeyModal';
 // --- MAIN APP COMPONENT (RENAMED FROM App TO MainApp) ---
 const MainApp: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
+  const [selectedProfile, setSelectedProfile] = useState<FamilyProfile | null>(null);
+  const [showProfileWelcome, setShowProfileWelcome] = useState(false);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAwakened, setIsAwakened] = useState(false);
@@ -72,20 +76,29 @@ const MainApp: React.FC = () => {
         const parsedUser = JSON.parse(savedUser);
         setUser(parsedUser);
         
-        const savedProfile = localStorage.getItem('diyaraUserProfile');
-        if (savedProfile) {
-          setUserProfile(JSON.parse(savedProfile));
-          setIsAwakened(true);
-        }
-        
-        const savedImages = localStorage.getItem('diyaraGeneratedImages');
-        if (savedImages) setGeneratedImages(JSON.parse(savedImages));
+        // Check for selected profile
+        const savedProfileId = localStorage.getItem('diyaraSelectedProfile');
+        if (savedProfileId) {
+          const savedProfile = JSON.parse(savedProfileId);
+          setSelectedProfile(savedProfile);
+          
+          // Load profile-specific data
+          const profileKey = `diyaraProfile_${savedProfile.id}`;
+          const savedProfileData = localStorage.getItem(profileKey);
+          if (savedProfileData) {
+            setUserProfile(JSON.parse(savedProfileData));
+            setIsAwakened(true);
+          }
+          
+          const savedImages = localStorage.getItem(`diyaraImages_${savedProfile.id}`);
+          if (savedImages) setGeneratedImages(JSON.parse(savedImages));
 
-        const savedMissions = localStorage.getItem('diyaraMissionState');
-        if (savedMissions) setMissionState(JSON.parse(savedMissions));
-        
-        const savedAudioEntries = localStorage.getItem('diyaraAudioEntries');
-        if (savedAudioEntries) setAudioEntries(JSON.parse(savedAudioEntries));
+          const savedMissions = localStorage.getItem(`diyaraMissions_${savedProfile.id}`);
+          if (savedMissions) setMissionState(JSON.parse(savedMissions));
+          
+          const savedAudioEntries = localStorage.getItem(`diyaraAudio_${savedProfile.id}`);
+          if (savedAudioEntries) setAudioEntries(JSON.parse(savedAudioEntries));
+        }
       }
     } catch (error) {
         console.error("Failed to parse data from localStorage", error);
@@ -113,23 +126,41 @@ const MainApp: React.FC = () => {
     setUser(loggedInUser);
   };
 
-  const handleOnboardingComplete = (profile: UserProfile, name: string) => {
-    if(user){
-        const updatedUser = {...user, name};
-        setUser(updatedUser);
-        localStorage.setItem('diyaraUser', JSON.stringify(updatedUser));
+  const handleProfileSelect = (profile: FamilyProfile) => {
+    setSelectedProfile(profile);
+    localStorage.setItem('diyaraSelectedProfile', JSON.stringify(profile));
+    setShowProfileWelcome(true);
+  };
+
+  const handleWelcomeComplete = () => {
+    setShowProfileWelcome(false);
+    
+    // Check if this profile has completed onboarding
+    const profileKey = `diyaraProfile_${selectedProfile?.id}`;
+    const savedProfileData = localStorage.getItem(profileKey);
+    
+    if (savedProfileData) {
+      setUserProfile(JSON.parse(savedProfileData));
+      setIsAwakened(true);
     }
-    localStorage.setItem('diyaraUserProfile', JSON.stringify(profile));
-    setUserProfile(profile);
-    setIsAwakened(true);
-    setMessages([{
+    // If no saved data, they'll see AwakeningSequence
+  };
+
+  const handleOnboardingComplete = (profile: UserProfile, name: string) => {
+    if (selectedProfile) {
+      const profileKey = `diyaraProfile_${selectedProfile.id}`;
+      localStorage.setItem(profileKey, JSON.stringify(profile));
+      setUserProfile(profile);
+      setIsAwakened(true);
+      setMessages([{
         role: 'model',
         text: `Greetings, ${name}! I am Diyara. Our journey through the ${profile.topic} galaxy begins now. I'm ready for your first transmission!`
-    }]);
-    
-    const musicConsentGiven = localStorage.getItem('diyaraMusicConsent');
-    if (!musicConsentGiven) {
-      setShowMusicConsent(true);
+      }]);
+      
+      const musicConsentGiven = localStorage.getItem('diyaraMusicConsent');
+      if (!musicConsentGiven) {
+        setShowMusicConsent(true);
+      }
     }
   };
 
@@ -140,27 +171,33 @@ const MainApp: React.FC = () => {
   };
 
   const handleImageCreated = (image: GeneratedImage) => {
-    setGeneratedImages(prev => {
+    if (selectedProfile) {
+      setGeneratedImages(prev => {
         const updatedImages = [image, ...prev];
-        localStorage.setItem('diyaraGeneratedImages', JSON.stringify(updatedImages));
+        localStorage.setItem(`diyaraImages_${selectedProfile.id}`, JSON.stringify(updatedImages));
         return updatedImages;
-    });
-    setActiveTab(FeatureTab.Gallery);
+      });
+      setActiveTab(FeatureTab.Gallery);
+    }
   };
 
   const handleMissionComplete = (missionId: string) => {
-    setMissionState(prev => {
+    if (selectedProfile) {
+      setMissionState(prev => {
         if (prev.completedMissions.includes(missionId)) return prev;
         const newState = { ...prev, completedMissions: [...prev.completedMissions, missionId] };
-        localStorage.setItem('diyaraMissionState', JSON.stringify(newState));
+        localStorage.setItem(`diyaraMissions_${selectedProfile.id}`, JSON.stringify(newState));
         return newState;
-    });
+      });
+    }
   };
 
   const handleAudioEntriesUpdate = (updatedEntries: AudioEntry[]) => {
+    if (selectedProfile) {
       setAudioEntries(updatedEntries);
-      localStorage.setItem('diyaraAudioEntries', JSON.stringify(updatedEntries));
-  }
+      localStorage.setItem(`diyaraAudio_${selectedProfile.id}`, JSON.stringify(updatedEntries));
+    }
+  };
 
   const handleReset = () => {
       localStorage.clear();
@@ -185,9 +222,19 @@ const MainApp: React.FC = () => {
     if (!user) {
         return <AuthGate onLogin={handleLogin} />;
     }
+    
+    if (!selectedProfile) {
+        return <ProfileSelection onSelectProfile={handleProfileSelect} />;
+    }
+    
+    if (showProfileWelcome) {
+        return <ProfileWelcome profile={selectedProfile} onComplete={handleWelcomeComplete} />;
+    }
+    
     if (!userProfile) {
         return <AwakeningSequence onComplete={handleOnboardingComplete} />;
     }
+    
     if (showParentDashboard) {
         return <ParentDashboard onBack={() => setShowParentDashboard(false)} />;
     }
@@ -195,9 +242,9 @@ const MainApp: React.FC = () => {
     const renderFeature = () => {
         switch (activeTab) {
         case FeatureTab.Galaxy:
-            return <GalaxyView userName={user.name} userProfile={userProfile} missionState={missionState} onMissionComplete={handleMissionComplete} />;
+            return <GalaxyView userName={selectedProfile.name} userProfile={userProfile} missionState={missionState} onMissionComplete={handleMissionComplete} />;
         case FeatureTab.Chat:
-            return <ChatFeature userName={user.name} profile={userProfile} messages={messages} setMessages={setMessages} />;
+            return <ChatFeature userName={selectedProfile.name} profile={userProfile} messages={messages} setMessages={setMessages} />;
         case FeatureTab.AudioJournal:
             return <AudioJournalFeature entries={audioEntries} onEntriesUpdate={handleAudioEntriesUpdate} />;
         case FeatureTab.Create:
@@ -216,7 +263,7 @@ const MainApp: React.FC = () => {
     return (
         <div className="h-screen w-screen flex flex-col">
             <Header 
-                userName={user.name} 
+                userName={selectedProfile.name} 
                 onOpenSettings={() => setIsSettingsOpen(true)}
                 isMusicPlaying={isMusicPlaying}
                 onToggleMusic={toggleMusic}
@@ -227,7 +274,7 @@ const MainApp: React.FC = () => {
             <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
     );
-  }
+  };
 
   return (
     <>
@@ -242,7 +289,7 @@ const MainApp: React.FC = () => {
 };
 
 // ============================================
-// NEW WRAPPER CODE - API KEY CHECK
+// API KEY CHECK WRAPPER
 // ============================================
 
 const App: React.FC = () => {
@@ -250,14 +297,12 @@ const App: React.FC = () => {
   const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
   const [showApiSettings, setShowApiSettings] = useState(false);
 
-  // Check for API key on mount
   useEffect(() => {
     const apiKey = localStorage.getItem('GROQ_API_KEY');
     setHasApiKey(!!apiKey);
     setIsCheckingApiKey(false);
   }, []);
 
-  // Loading state while checking for API key
   if (isCheckingApiKey) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center">
@@ -269,23 +314,18 @@ const App: React.FC = () => {
     );
   }
 
-  // Show welcome screen if no API key
   if (!hasApiKey) {
     return <WelcomeScreen onComplete={() => setHasApiKey(true)} />;
   }
 
-  // Show main app with API settings button
   return (
     <div className="relative">
-      {/* Your Main App */}
       <MainApp />
       
-      {/* API Key Settings Button - Fixed in bottom right corner */}
       <button
         onClick={() => setShowApiSettings(true)}
         className="fixed bottom-6 right-6 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-sm text-white p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 z-[100] border border-slate-600"
         title="API Key Settings"
-        aria-label="Open API Key Settings"
       >
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -293,7 +333,6 @@ const App: React.FC = () => {
         </svg>
       </button>
       
-      {/* API Key Settings Modal */}
       <ApiKeyModal isOpen={showApiSettings} onClose={() => setShowApiSettings(false)} />
     </div>
   );
