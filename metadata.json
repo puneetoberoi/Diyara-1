@@ -1,0 +1,7 @@
+{
+  "name": "Diyara",
+  "description": "Diyara is a fun, interactive app designed to illuminate young minds with AI knowledge through micro-learning. Explore AI features like chat, image/video generation, live conversation, and more, all guided by our friendly mascot, Diya.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}

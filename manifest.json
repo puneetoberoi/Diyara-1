@@ -1,0 +1,24 @@
+
+{
+  "name": "Diyara - AI Learning",
+  "short_name": "Diyara",
+  "description": "Bringing light to AI learning - 5 minutes at a time",
+  "icons": [
+    {
+      "src": "https://picsum.photos/seed/diyara192/192/192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "https://picsum.photos/seed/diyara512/512/512",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ],
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#FFD700",
+  "background_color": "#FAFAFA",
+  "orientation": "portrait"
+}

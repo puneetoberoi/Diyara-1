@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Diyara - AI Learning Universe</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="manifest" href="/manifest.json" />
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Orbitron:wght@400;700&display=swap');
+    
+    :root {
+      /* Dormant State */
+      --primary: #FFD700;
+      --secondary: #6A5ACD;
+      --accent: #FF6B6B;
+      --text-primary: #EAEAEA;
+      --text-secondary: #BEBEBE;
+      --background-start: #0f0c29;
+      --background-mid: #302b63;
+      --background-end: #24243e;
+      
+      /* Awakened State */
+      --awakened-bg-start: #4a00e0;
+      --awakened-bg-mid: #8e2de2;
+      --awakened-bg-end: #0f0c29;
+    }
+
+    body {
+      font-family: 'Poppins', sans-serif;
+      color: var(--text-primary);
+      --bg-start: var(--background-start);
+      --bg-mid: var(--background-mid);
+      --bg-end: var(--background-end);
+      background: linear-gradient(-45deg, var(--bg-start), var(--bg-mid), var(--bg-end));
+      background-size: 400% 400%;
+      animation: gradientBG 25s ease infinite;
+      overflow: hidden; /* Prevent scrollbars from the main page */
+      transition: --bg-start 1s ease, --bg-mid 1s ease, --bg-end 1s ease;
+    }
+
+    body.awakened {
+        --bg-start: var(--awakened-bg-start);
+        --bg-mid: var(--awakened-bg-mid);
+        --bg-end: var(--awakened-bg-end);
+    }
+    
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    .font-brand {
+      font-family: 'Orbitron', sans-serif;
+    }
+
+    /* Custom scrollbar for a more polished look */
+    ::-webkit-scrollbar {
+      width: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #24243e;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #FFD700;
+      border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #e6c300;
+    }
+    
+    .holographic-text {
+        color: white;
+        text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FFD700, 0 0 35px #FFD700, 0 0 40px #FFD700, 0 0 50px #FFD700, 0 0 75px #FFD700;
+        animation: flicker 3s infinite alternate;
+    }
+
+    @keyframes flicker {
+      0%, 18%, 22%, 25%, 53%, 57%, 100% {
+        text-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 20px #FFD700, 0 0 35px #FFD700, 0 0 40px #FFD700, 0 0 50px #FFD700, 0 0 75px #FFD700;
+      }
+      20%, 24%, 55% {
+        text-shadow: none;
+      }
+    }
+
+    /* Futuristic UI Elements */
+    .scanline-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+      background-size: 100% 4px, 6px 100%;
+      z-index: 100;
+      animation: scan 20s linear infinite;
+    }
+
+    @keyframes scan {
+      0% { background-position: 0 0; }
+      100% { background-position: 0 100vh; }
+    }
+    
+    /* Component fade-in animation */
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .animate-fadeIn {
+      animation: fadeIn 0.6s ease-out forwards;
+    }
+    
+    /* Main Content Area Transition */
+    @keyframes contentFadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+    }
+
+    .main-content-animate {
+        animation: contentFadeIn 0.4s ease-in-out;
+    }
+    
+    /* Toggle Switch */
+    .futuristic-toggle {
+      position: relative;
+      display: inline-block;
+      width: 50px;
+      height: 24px;
+    }
+    .futuristic-toggle input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: #333;
+      transition: .4s;
+      border-radius: 24px;
+      border: 1px solid var(--primary);
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 16px;
+      width: 16px;
+      left: 4px;
+      bottom: 3px;
+      background-color: white;
+      transition: .4s;
+      border-radius: 50%;
+      box-shadow: 0 0 5px var(--primary);
+    }
+    input:checked + .slider {
+      background-color: var(--secondary);
+    }
+    input:checked + .slider:before {
+      transform: translateX(26px);
+      background-color: var(--primary);
+    }
+    
+    /* Garden pulsing flower */
+    @keyframes pulse-glow {
+        0%, 100% {
+            transform: scale(1);
+            filter: drop-shadow(0 0 3px hsl(var(--glow-hue), 80%, 70%));
+        }
+        50% {
+            transform: scale(1.05);
+            filter: drop-shadow(0 0 8px hsl(var(--glow-hue), 80%, 70%));
+        }
+    }
+    .animate-pulse-glow {
+        animation: pulse-glow 3s infinite ease-in-out;
+    }
+    
+    /* Garden neural pathway */
+    .neural-pathway {
+        stroke: hsl(200, 80%, 50%);
+        stroke-width: 2;
+        filter: drop-shadow(0 0 5px hsl(200, 80%, 50%));
+        stroke-dasharray: 1000;
+        stroke-dashoffset: 1000;
+        animation: draw-line 2s ease-out forwards;
+    }
+
+    @keyframes draw-line {
+        to {
+            stroke-dashoffset: 0;
+        }
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1"
+  }
+}
+</script>
+</head>
+<body>
+  <div id="root"></div>
+  <div class="scanline-overlay"></div>
+  <audio id="background-music" loop>
+    <source src="https://assets.mixkit.co/music/preview/mixkit-deep-thought-282.mp3" type="audio/mpeg">
+    Your browser does not support the audio element.
+  </audio>
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js')
+          .then(registration => console.log('ServiceWorker registration successful with scope: ', registration.scope))
+          .catch(error => console.log('ServiceWorker registration failed: ', error));
+      });
+    }
+  </script>
+  <script type="module" src="/index.tsx"></script>
+</body>
+</html>
