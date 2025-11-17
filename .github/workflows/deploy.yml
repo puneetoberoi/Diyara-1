@@ -55,7 +55,7 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      # Create the complete mock @google/genai package
+      # Create the complete mock @google/genai package with ALL exports
       - name: Create mock @google/genai package
         run: |
           mkdir -p node_modules/@google/genai
@@ -69,7 +69,7 @@ jobs:
           EOF
           
           cat > node_modules/@google/genai/index.js << 'EOF'
-          // Mock implementation for @google/genai
+          // Complete mock implementation for @google/genai
           
           export class GoogleGenAI {
             constructor(config) {
@@ -84,6 +84,12 @@ jobs:
                 throw new Error('API key required - please add your Gemini API key at runtime');
               }
             };
+            
+            live = {
+              connect: async (params) => {
+                throw new Error('API key required - please add your Gemini API key at runtime');
+              }
+            };
           }
           
           // Type utilities
@@ -95,6 +101,51 @@ jobs:
             ARRAY: "ARRAY",
             OBJECT: "OBJECT"
           };
+          
+          // Modality enum
+          export const Modality = {
+            TEXT: "TEXT",
+            AUDIO: "AUDIO",
+            VIDEO: "VIDEO",
+            IMAGE: "IMAGE"
+          };
+          
+          // LiveServerMessage class
+          export class LiveServerMessage {
+            constructor(data) {
+              this.data = data;
+            }
+          }
+          
+          // Blob class for binary data
+          export class Blob {
+            constructor(data, mimeType) {
+              this.data = data;
+              this.mimeType = mimeType;
+            }
+          }
+          
+          // Content and Part classes
+          export class Content {
+            constructor(parts, role = 'user') {
+              this.parts = parts;
+              this.role = role;
+            }
+          }
+          
+          export class Part {
+            constructor(data) {
+              Object.assign(this, data);
+            }
+            
+            static fromText(text) {
+              return new Part({ text });
+            }
+            
+            static fromInlineData(data, mimeType) {
+              return new Part({ inlineData: { data, mimeType } });
+            }
+          }
           
           // Harm categories
           export const HarmCategory = {
@@ -112,7 +163,21 @@ jobs:
             BLOCK_LOW_AND_ABOVE: "BLOCK_LOW_AND_ABOVE"
           };
           
-          // Also export GoogleGenerativeAI as an alias (in case it's used)
+          // Schema class
+          export class Schema {
+            constructor(config) {
+              Object.assign(this, config);
+            }
+          }
+          
+          // GenerateContentConfig
+          export class GenerateContentConfig {
+            constructor(config) {
+              Object.assign(this, config);
+            }
+          }
+          
+          // Also export GoogleGenerativeAI as an alias
           export const GoogleGenerativeAI = GoogleGenAI;
           EOF
       
