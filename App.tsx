@@ -252,7 +252,7 @@ const App: React.FC = () => {
 
   // Check for API key on mount
   useEffect(() => {
-    const apiKey = localStorage.getItem('GEMINI_API_KEY');
+    const apiKey = localStorage.getItem('GROQ_API_KEY');
     setHasApiKey(!!apiKey);
     setIsCheckingApiKey(false);
   }, []);
