@@ -199,16 +199,32 @@
         }
     }
   </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.2.0/",
-    "react": "https://aistudiocdn.com/react@^19.2.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1"
+  <script type="importmap">
+  {
+    "imports": {
+      "react/": "https://aistudiocdn.com/react@^19.2.0/",
+      "react": "https://aistudiocdn.com/react@^19.2.0",
+      "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+      "@google/genai": "https://aistudiocdn.com/@google/genai@^1.29.1"
+    }
   }
-}
-</script>
+  </script>
+  <style>
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0px) translateX(0px);
+        opacity: 0.3;
+      }
+      50% {
+        transform: translateY(-20px) translateX(10px);
+        opacity: 0.6;
+      }
+    }
+  
+    .animate-float {
+      animation: float linear infinite;
+    }
+  </style>
 </head>
 <body>
   <div id="root"></div>
