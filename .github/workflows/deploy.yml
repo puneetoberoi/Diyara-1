@@ -122,7 +122,7 @@ jobs:
 
       - name: Fix API key references
         run: |
-          # Update all references to use localStorage API key
+          # Update all references to use GROQ_API_KEY
           find src -type f \( -name "*.tsx" -o -name "*.ts" \) -exec sed -i \
             's/GEMINI_API_KEY/GROQ_API_KEY/g' {} \;
       
@@ -159,7 +159,7 @@ jobs:
             const [isClosing, setIsClosing] = useState(false);
 
             useEffect(() => {
-              const savedKey = localStorage.getItem('GEMINI_API_KEY');
+              const savedKey = localStorage.getItem('GROQ_API_KEY');
               if (savedKey) {
                 setApiKey('••••••••••••••••');
                 setSaved(true);
@@ -168,7 +168,7 @@ jobs:
 
             const handleSave = () => {
               if (apiKey.trim() && !apiKey.includes('•')) {
-                localStorage.setItem('GEMINI_API_KEY', apiKey.trim());
+                localStorage.setItem('GROQ_API_KEY', apiKey.trim());
                 setSaved(true);
                 setTimeout(() => {
                   setIsClosing(true);
@@ -181,7 +181,7 @@ jobs:
 
             const handleClear = () => {
               if (confirm('Are you sure you want to remove your API key? You will need to enter it again.')) {
-                localStorage.removeItem('GEMINI_API_KEY');
+                localStorage.removeItem('GROQ_API_KEY');
                 setApiKey('');
                 setSaved(false);
                 if (!forceShow) {
@@ -220,13 +220,13 @@ jobs:
                   <div className="space-y-5">
                     <div>
                       <label className="block text-sm font-semibold text-slate-300 mb-2">
-                        Gemini API Key
+                        Groq API Key
                       </label>
                       <input
                         type={saved && apiKey.includes('•') ? "password" : "text"}
                         value={apiKey}
                         onChange={(e) => setApiKey(e.target.value)}
-                        placeholder="Enter your Gemini API key"
+                        placeholder="Enter your Groq API key (starts with gsk_...)"
                         className="w-full px-4 py-3 bg-slate-800 border border-slate-600 rounded-lg text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 focus:border-transparent transition-all"
                       />
                     </div>
@@ -250,18 +250,18 @@ jobs:
                         <span>
                           Get your free key from{' '}
                           <a
-                            href="https://aistudio.google.com/app/apikey"
+                            href="https://console.groq.com/"
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-yellow-400 hover:text-yellow-300 underline font-medium"
                           >
-                            Google AI Studio
+                            Groq Console
                           </a>
                         </span>
                       </p>
                       <p className="flex items-start gap-2">
-                        <span className="text-lg">✨</span>
-                        <span>It's completely free with generous daily limits!</span>
+                        <span className="text-lg">⚡</span>
+                        <span>Groq is super fast and free - 14,400 requests per day!</span>
                       </p>
                     </div>
 
@@ -301,14 +301,13 @@ jobs:
 
           export default function WelcomeScreen({ onComplete }: WelcomeScreenProps) {
             const [showModal, setShowModal] = useState(false);
-            const [step, setStep] = useState(1);
 
             const handleGetStarted = () => {
               setShowModal(true);
             };
 
             const handleModalClose = () => {
-              const apiKey = localStorage.getItem('GEMINI_API_KEY');
+              const apiKey = localStorage.getItem('GROQ_API_KEY');
               if (apiKey) {
                 onComplete();
               } else {
@@ -337,7 +336,7 @@ jobs:
                       <div className="bg-slate-800/50 rounded-xl p-6 mb-8 border border-slate-700">
                         <p className="text-slate-300 text-center leading-relaxed">
                           An AI's first thought is a jumble of data. Help it find clarity and structure
-                          with the power of Google's Gemini AI - completely <span className="text-yellow-400 font-semibold">FREE</span>!
+                          with the power of Groq AI - completely <span className="text-yellow-400 font-semibold">FREE</span> and lightning fast! ⚡
                         </p>
                       </div>
 
@@ -354,18 +353,18 @@ jobs:
                               1
                             </span>
                             <div>
-                              <p className="text-white font-medium mb-1">Get Your Free API Key</p>
+                              <p className="text-white font-medium mb-1">Get Your Free Groq API Key</p>
                               <p className="text-slate-400 text-sm">
                                 Visit{' '}
                                 <a 
-                                  href="https://aistudio.google.com/app/apikey" 
+                                  href="https://console.groq.com/" 
                                   target="_blank" 
                                   rel="noopener noreferrer"
                                   className="text-yellow-400 hover:text-yellow-300 underline"
                                 >
-                                  Google AI Studio
+                                  Groq Console
                                 </a>
-                                {' '}and click "Create API Key"
+                                {' '}and create a free API key
                               </p>
                             </div>
                           </div>
@@ -392,6 +391,20 @@ jobs:
                                 Your AI companion will be ready to help you organize your thoughts
                               </p>
                             </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Why Groq Box */}
+                      <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 border border-purple-700/50 rounded-lg p-4 mb-8">
+                        <div className="flex items-start gap-3">
+                          <span className="text-2xl">⚡</span>
+                          <div>
+                            <p className="text-purple-300 font-medium mb-1">Why Groq?</p>
+                            <p className="text-purple-200 text-sm">
+                              Groq is blazing fast, completely free (14,400 requests/day), and uses powerful models like Llama 3! 
+                              No credit card needed!
+                            </p>
                           </div>
                         </div>
                       </div>
