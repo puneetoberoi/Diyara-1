@@ -20,7 +20,7 @@ jobs:
         with:
           node-version: '20'
       
-      # Create package.json FIRST
+      # Create package.json with the mock package
       - name: Create package.json
         run: |
           cat > package.json << 'EOF'
@@ -55,7 +55,63 @@ jobs:
       - name: Install dependencies
         run: npm install
       
-      # Create TypeScript config with relaxed rules for build
+      # Create the mock Google Generative AI package
+      - name: Create mock @google/generative-ai package
+        run: |
+          mkdir -p node_modules/@google/generative-ai
+          cat > node_modules/@google/generative-ai/package.json << 'EOF'
+          {
+            "name": "@google/generative-ai",
+            "version": "0.0.0-mock",
+            "main": "index.js",
+            "type": "module"
+          }
+          EOF
+          
+          cat > node_modules/@google/generative-ai/index.js << 'EOF'
+          export class GoogleGenerativeAI {
+            constructor(apiKey) {
+              this.apiKey = apiKey;
+            }
+            
+            getGenerativeModel(config) {
+              return {
+                generateContent: async (prompt) => {
+                  throw new Error('API key required - please add your Gemini API key at runtime');
+                },
+                generateContentStream: async (prompt) => {
+                  throw new Error('API key required - please add your Gemini API key at runtime');
+                },
+                startChat: (config) => {
+                  return {
+                    sendMessage: async (message) => {
+                      throw new Error('API key required - please add your Gemini API key at runtime');
+                    },
+                    sendMessageStream: async (message) => {
+                      throw new Error('API key required - please add your Gemini API key at runtime');
+                    }
+                  };
+                }
+              };
+            }
+          }
+          
+          export const HarmCategory = {
+            HARM_CATEGORY_HARASSMENT: "HARM_CATEGORY_HARASSMENT",
+            HARM_CATEGORY_HATE_SPEECH: "HARM_CATEGORY_HATE_SPEECH",
+            HARM_CATEGORY_SEXUALLY_EXPLICIT: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            HARM_CATEGORY_DANGEROUS_CONTENT: "HARM_CATEGORY_DANGEROUS_CONTENT"
+          };
+          
+          export const HarmBlockThreshold = {
+            BLOCK_NONE: "BLOCK_NONE",
+            BLOCK_ONLY_HIGH: "BLOCK_ONLY_HIGH",
+            BLOCK_MEDIUM_AND_ABOVE: "BLOCK_MEDIUM_AND_ABOVE",
+            BLOCK_LOW_AND_ABOVE: "BLOCK_LOW_AND_ABOVE"
+          };
+          EOF
+      
+      # Create TypeScript config
       - name: Create tsconfig.json
         run: |
           cat > tsconfig.json << 'EOF'
@@ -96,7 +152,7 @@ jobs:
           }
           EOF
       
-      # Create vite config with define for process.env
+      # Create vite config
       - name: Create vite config
         run: |
           cat > vite.config.ts << 'EOF'
@@ -108,11 +164,6 @@ jobs:
             base: '/Diyara-1/',
             define: {
               'process.env': {}
-            },
-            resolve: {
-              alias: {
-                '@google/genai': '/src/genai-mock.ts'
-              }
             }
           })
           EOF
@@ -133,30 +184,9 @@ jobs:
           [ -d "hooks" ] && mv hooks src/ || true
           [ -d "utils" ] && mv utils src/ || true
       
-      # Create proper mock genai module
-      - name: Create mock genai module
+      # Create window type definitions
+      - name: Create window type definitions
         run: |
-          cat > src/genai-mock.ts << 'EOF'
-          /* eslint-disable @typescript-eslint/no-unused-vars */
-          export class GoogleGenerativeAI {
-            constructor(_apiKey: string) {}
-            getGenerativeModel(_config: any) {
-              return {
-                generateContentStream: async (_prompt: string) => {
-                  throw new Error('API key required - please add your Gemini API key');
-                }
-              };
-            }
-          }
-          EOF
-      
-      # Fix import statements in all component files
-      - name: Fix imports in component files
-        run: |
-          # Replace @google/genai with @google/generative-ai in all TypeScript files
-          find src -type f \( -name "*.ts" -o -name "*.tsx" \) -exec sed -i "s/@google\/genai/@google\/generative-ai/g" {} +
-          
-          # Add window type extension for aistudio
           cat > src/window.d.ts << 'EOF'
           export {};
           
@@ -169,24 +199,6 @@ jobs:
             }
           }
           EOF
-      
-      # Fix specific TypeScript errors
-      - name: Fix TypeScript errors in files
-        run: |
-          # Fix App.tsx - comment out unused addToast
-          if [ -f "src/App.tsx" ]; then
-            sed -i 's/const \[toasts, addToast\]/const [toasts] \/\/ , addToast/' src/App.tsx
-          fi
-          
-          # Fix ChatFeature.tsx - comment out unused profile
-          if [ -f "src/components/ChatFeature.tsx" ]; then
-            sed -i 's/const { input, setInput, messages, sendMessage, isLoading, profile }/const { input, setInput, messages, sendMessage, isLoading } \/\/ , profile/' src/components/ChatFeature.tsx
-          fi
-          
-          # Fix LiveTalkFeature.tsx - add type annotation
-          if [ -f "src/components/LiveTalkFeature.tsx" ]; then
-            sed -i 's/\.forEach((session) =>/.forEach((session: any) =>/' src/components/LiveTalkFeature.tsx
-          fi
       
       # Update index.html
       - name: Update index.html
