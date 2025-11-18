@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
+import SoundButton from './SoundButton';
+import { useAudio } from '../utils/AudioManager';
 
 interface AuthGateProps {
   onLogin: (user: { id: string; name: string }) => void;
@@ -8,12 +10,26 @@ interface AuthGateProps {
 const AuthGate: React.FC<AuthGateProps> = ({ onLogin }) => {
   const [accessCode, setAccessCode] = useState('');
   const [error, setError] = useState('');
+  const audio = useAudio();
 
   const VALID_CODE = 'DIYARA2025'; // Change this to your desired access code
 
+  // Play background music when component mounts
+  useEffect(() => {
+    audio.playBackgroundMusic('accessCode');
+    
+    return () => {
+      // Don't stop music on unmount, let it continue
+    };
+  }, []);
+
   const handleSubmit = () => {
     if (accessCode.trim().toUpperCase() === VALID_CODE) {
-      onLogin({ id: 'family', name: 'Family' });
+      audio.playSuccess();
+      audio.playTransition();
+      setTimeout(() => {
+        onLogin({ id: 'family', name: 'Family' });
+      }, 500);
     } else {
       setError('Invalid access code');
       setTimeout(() => setError(''), 2000);
@@ -98,13 +114,14 @@ const AuthGate: React.FC<AuthGateProps> = ({ onLogin }) => {
           </div>
 
           {/* Authenticate button */}
-          <button
+          <SoundButton
             onClick={handleSubmit}
             disabled={!accessCode.trim()}
+            soundType="success"
             className="w-full px-6 py-3 sm:py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 disabled:from-gray-600 disabled:to-gray-700 text-black disabled:text-gray-400 font-bold text-base sm:text-lg md:text-xl rounded-xl transition-all transform hover:scale-105 active:scale-95 disabled:scale-100 disabled:cursor-not-allowed shadow-lg disabled:shadow-none"
           >
             Authenticate
-          </button>
+          </SoundButton>
         </div>
 
         {/* Help text */}
