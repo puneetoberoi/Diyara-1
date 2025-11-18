@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
 import SoundButton from './SoundButton';
-import { useAudio } from '../utils/AudioManager';
+import { useAudio } from './AudioManager';
 
 export interface FamilyProfile {
   id: string;
