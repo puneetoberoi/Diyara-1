@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
 import SoundButton from './SoundButton';
-import { useAudio } from '../utils/AudioManager';
+import { useAudio } from './AudioManager';
 
 interface AuthGateProps {
   onLogin: (user: { id: string; name: string }) => void;
