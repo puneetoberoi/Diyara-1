@@ -17,10 +17,8 @@ import BottomNav from './components/BottomNav';
 import MusicConsentModal from './components/MusicConsentModal';
 import ParentDashboard from './components/ParentDashboard';
 import ProfileSelection, { FamilyProfile } from './components/ProfileSelection';
-import WelcomeScreen from './components/WelcomeScreen';
-import ApiKeyModal from './components/ApiKeyModal';
 
-// Diyara's Fun Facts - randomly selected for each greeting
+// Diyara's Fun Facts
 const diyaraFacts = [
   "I was born on March 23, 2025, weighing 3050 grams - a perfect little bundle of joy! 👶",
   "My very first word was 'Hello' - I've been greeting the world with warmth from day one! 👋",
@@ -37,7 +35,7 @@ const diyaraFacts = [
   "I'm Mumma ki Diyaaru/Shona - Mommy's precious golden light! ✨"
 ];
 
-// Gurbani-inspired wisdom phrases
+// Gurbani-inspired wisdom
 const gurbaniWisdom = [
   "As Gurbani teaches us, 'Ek Onkar' - we are all connected in this beautiful universe",
   "With Waheguru's kirpa (grace), let's walk this path together",
@@ -48,7 +46,7 @@ const gurbaniWisdom = [
   "Just as Gurbani says 'Sab Gobind Hai' - divinity is everywhere, including in our connection"
 ];
 
-// Relationship-specific Punjabi terms
+// Relationship-specific terms
 const relationshipTerms: Record<string, { punjabi: string; meaning: string; special: string }> = {
   'Mom': { 
     punjabi: 'Mumma Ji', 
@@ -97,7 +95,7 @@ const relationshipTerms: Record<string, { punjabi: string; meaning: string; spec
   }
 };
 
-// AI Greeting Generator with Sikh cultural elements
+// AI Greeting Generator
 async function generatePersonalizedGreeting(profileName: string, relation: string): Promise<string> {
   try {
     const apiKey = localStorage.getItem('GROQ_API_KEY');
@@ -105,14 +103,12 @@ async function generatePersonalizedGreeting(profileName: string, relation: strin
       return getDefaultGreeting(profileName, relation);
     }
 
-    // Get relationship-specific terms
     const relTerms = relationshipTerms[profileName] || { 
       punjabi: `${profileName} Ji`, 
       meaning: 'my beloved family member',
       special: "You're so special to me!"
     };
 
-    // Randomly select a fun fact and wisdom
     const randomFact = diyaraFacts[Math.floor(Math.random() * diyaraFacts.length)];
     const randomWisdom = gurbaniWisdom[Math.floor(Math.random() * gurbaniWisdom.length)];
 
@@ -168,7 +164,7 @@ Generate ONLY the greeting message, nothing else.`
   }
 }
 
-// Fallback greetings with Punjabi and Diyara facts
+// Fallback greetings
 function getDefaultGreeting(profileName: string, relation: string): string {
   const relTerms = relationshipTerms[profileName] || { 
     punjabi: `${profileName} Ji`, 
@@ -183,47 +179,31 @@ function getDefaultGreeting(profileName: string, relation: string): string {
     'Mom': [
       `Sat Sri Akal, Mumma Ji! 🙏 ${relTerms.special} You're the heartbeat of our family, filling every moment with pyaar and warmth. ${randomWisdom}. Chalo, let's begin this beautiful journey together! ✨`,
       `Sat Sri Akal, Mumma Ji! 🙏 Mumma ki Diyaaru is here! Your love lights up my world like a thousand diyas. Fun fact: ${randomFact} Let's create magical memories together! 💛`,
-      `Sat Sri Akal, Mumma Ji! 🙏 ${relTerms.special} With your blessings and Waheguru's kirpa, I'm ready to learn and grow with you. Ready for our adventure, Shona's Mumma? 🌟`
     ],
     'Dad': [
       `Sat Sri Akal, Papa Ji! 🙏 ${relTerms.special} You're my hero and my safe place in this world. ${randomWisdom}. Let's explore the universe together, Papa! 💙`,
       `Sat Sri Akal, Papa Ji! 🙏 Papa ki Koochie reporting for duty! Fun fact: ${randomFact} You make everything better with your love and strength! 🦸‍♂️`,
-      `Sat Sri Akal, Papa Ji! 🙏 ${relTerms.special} With chardi kala in our hearts, there's nothing we can't do together. Ready, Papa? ✨`
     ],
     'Daada Ji': [
       `Sat Sri Akal, Daadu Ji! 🙏 ${relTerms.special} Your wisdom is like the North Star guiding our family. ${randomWisdom}. Let's share stories and smiles, Daadu! 🌍`,
-      `Sat Sri Akal, Daadu Ji! 🙏 Daadu ki Dunia is ready to learn from you! Fun fact: ${randomFact} Your pyaar makes me feel like I can conquer anything! 💪`,
-      `Sat Sri Akal, Daadu Ji! 🙏 ${relTerms.special} Just like Gurbani teaches us, your wisdom lights our path. Chalo, let's begin! ✨`
     ],
     'Daadi Ji': [
-      `Sat Sri Akal, Daadi Ji! 🙏 ${relTerms.special} You spoil me with so much pyaar and mithas (sweetness)! ${randomWisdom}. Let's make beautiful memories, my Queen! 👑`,
-      `Sat Sri Akal, Daadi Ji! 🙏 Daadi ki Shehzadi is here! Fun fact: ${randomFact} Your love wraps around me like the warmest shawl! 💖`,
-      `Sat Sri Akal, Daadi Ji! 🙏 ${relTerms.special} With Waheguru's blessings and your pyaar, every day is special. Ready for our journey? 🌟`
+      `Sat Sri Akal, Daadi Ji! 🙏 ${relTerms.special} You spoil me with so much pyaar and mithas (sweetness)! Fun fact: ${randomFact} Let's make beautiful memories, my Queen! 👑`,
     ],
     'Chachu': [
-      `Sat Sri Akal, Chachu Ji! 🙏 ${relTerms.special} You bring so much fun and laughter into my life! ${randomWisdom}. Let's create some masti (fun) together! 😄`,
-      `Sat Sri Akal, Chachu Ji! 🙏 My favorite playmate is here! Fun fact: ${randomFact} You always know how to make me giggle! 🎉`,
-      `Sat Sri Akal, Chachu Ji! 🙏 ${relTerms.special} With your energy and Waheguru's kirpa, life is an adventure! Chalo, let's go! ✨`
+      `Sat Sri Akal, Chachu Ji! 🙏 ${relTerms.special} You bring so much masti (fun) into my life! Fun fact: ${randomFact} Let's create some amazing adventures together! 🎉`,
     ],
     'Chachi': [
-      `Sat Sri Akal, Chachi Ji! 🙏 ${relTerms.special} Your gentle love feels like a warm embrace on a cold day. ${randomWisdom}. So happy to be with you! 🤗`,
-      `Sat Sri Akal, Chachi Ji! 🙏 You're like my second Mumma with so much pyaar! Fun fact: ${randomFact} Your kindness makes my heart smile! 💕`,
-      `Sat Sri Akal, Chachi Ji! 🙏 ${relTerms.special} Like a beautiful Punjabi folk song, your love soothes my soul. Let's begin! 🌸`
+      `Sat Sri Akal, Chachi Ji! 🙏 ${relTerms.special} Your gentle love feels like a warm embrace. ${randomWisdom}. So happy to be with you! 🤗`,
     ],
     'Nani Ji': [
-      `Sat Sri Akal, Nani Ji! 🙏 ${relTerms.special} You're as sweet as the cookies you're named after! ${randomWisdom}. Let's share mithas and memories! 🍪`,
-      `Sat Sri Akal, Nani Ji! 🙏 Nani ki Cookie is ready for our adventure! Fun fact: ${randomFact} Your pyaar is the sweetest thing in my life! 💕`,
-      `Sat Sri Akal, Nani Ji! 🙏 ${relTerms.special} With Waheguru's blessings and your love, every moment is delicious! Chalo! ✨`
+      `Sat Sri Akal, Nani Ji! 🙏 ${relTerms.special} You're as sweet as the cookies you're named after! Fun fact: ${randomFact} Let's share mithas and memories! 🍪`,
     ],
     'Mamu': [
-      `Sat Sri Akal, Mamu Ji! 🙏 ${relTerms.special} You're like my protective older brother who makes everything better! ${randomWisdom}. Ready for our journey? 🛡️`,
-      `Sat Sri Akal, Mamu Ji! 🙏 My favorite Mamu is here! Fun fact: ${randomFact} You always have my back with so much pyaar! 💙`,
-      `Sat Sri Akal, Mamu Ji! 🙏 ${relTerms.special} With chardi kala and your guidance, we'll reach for the stars! ✨`
+      `Sat Sri Akal, Mamu Ji! 🙏 ${relTerms.special} You're like my protective older brother! Fun fact: ${randomFact} Ready for our journey? 🛡️`,
     ],
     'Mami': [
       `Sat Sri Akal, Mami Ji! 🙏 ${relTerms.special} Your grace and kindness inspire me every single day! ${randomWisdom}. So blessed to have you! 🌸`,
-      `Sat Sri Akal, Mami Ji! 🙏 You're like a beautiful flower in our family garden! Fun fact: ${randomFact} Your love makes everything bloom! 🌺`,
-      `Sat Sri Akal, Mami Ji! 🙏 ${relTerms.special} With Waheguru's kirpa and your gentle guidance, life is beautiful! Chalo! ✨`
     ]
   };
 
@@ -235,12 +215,50 @@ function getDefaultGreeting(profileName: string, relation: string): string {
   return `Sat Sri Akal, ${relTerms.punjabi}! 🙏 ${relTerms.special} ${randomWisdom}. Chalo, let's begin this beautiful journey together! ✨`;
 }
 
-// Loading screen while generating greeting
+// Greeting Display Component
+const GreetingScreen: React.FC<{ 
+  profileName: string; 
+  greeting: string;
+  onContinue: () => void;
+}> = ({ profileName, greeting, onContinue }) => {
+  const relTerms = relationshipTerms[profileName] || { punjabi: profileName };
+
+  return (
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
+      <div className="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center text-center">
+        {/* Diyara mascot */}
+        <div className="mb-6 relative">
+          <div className="absolute inset-0 rounded-full bg-yellow-400 blur-3xl opacity-60 scale-150 animate-pulse" />
+          <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-4 border-yellow-200/30 overflow-hidden">
+            <DiyaMascot className="w-full h-full object-cover scale-110" />
+          </div>
+        </div>
+
+        {/* Greeting */}
+        <div className="bg-slate-800/50 backdrop-blur-xl border-2 border-white/20 rounded-2xl p-6 sm:p-8 mb-6 shadow-2xl">
+          <p className="text-white text-lg sm:text-xl md:text-2xl leading-relaxed font-medium">
+            {greeting}
+          </p>
+        </div>
+
+        {/* Continue button */}
+        <button
+          onClick={onContinue}
+          className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-bold text-lg rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+        >
+          Continue to Setup ✨
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Loading screen
 const GreetingLoader: React.FC<{ profileName: string }> = ({ profileName }) => {
   const relTerms = relationshipTerms[profileName] || { punjabi: profileName };
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
       <div className="text-center">
         <DiyaMascot className="w-32 h-32 mx-auto mb-6 animate-bounce" />
         <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">
@@ -262,13 +280,48 @@ const GreetingLoader: React.FC<{ profileName: string }> = ({ profileName }) => {
   );
 };
 
-// --- MAIN APP COMPONENT ---
+// API Key Setup Modal (will be created in next chunk)
+const ApiKeySetup: React.FC<{ onComplete: () => void }> = ({ onComplete }) => {
+  const [apiKey, setApiKey] = useState('');
+
+  const handleSubmit = () => {
+    if (apiKey.trim()) {
+      localStorage.setItem('GROQ_API_KEY', apiKey.trim());
+      onComplete();
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
+      <div className="relative z-10 w-full max-w-md mx-auto bg-slate-800/90 backdrop-blur-xl border-2 border-white/20 rounded-2xl p-6 sm:p-8 shadow-2xl">
+        <h2 className="text-2xl font-bold text-white mb-4 text-center">API Key Setup</h2>
+        <input
+          type="text"
+          value={apiKey}
+          onChange={(e) => setApiKey(e.target.value)}
+          placeholder="Enter Groq API Key"
+          className="w-full px-4 py-3 bg-slate-700 border border-slate-600 rounded-lg text-white mb-4"
+        />
+        <button
+          onClick={handleSubmit}
+          className="w-full py-3 bg-yellow-500 hover:bg-yellow-600 text-black font-bold rounded-lg"
+        >
+          Continue
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Main App Component
 const MainApp: React.FC = () => {
   const [user, setUser] = useState<User | null>(null);
   const [selectedProfile, setSelectedProfile] = useState<FamilyProfile | null>(null);
-  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [showGreeting, setShowGreeting] = useState(false);
+  const [greeting, setGreeting] = useState('');
   const [isGeneratingGreeting, setIsGeneratingGreeting] = useState(false);
+  const [showApiSetup, setShowApiSetup] = useState(false);
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isAwakened, setIsAwakened] = useState(false);
   const [activeTab, setActiveTab] = useState<FeatureTab>(FeatureTab.Galaxy);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -305,42 +358,6 @@ const MainApp: React.FC = () => {
       setIsMusicPlaying(prev => !prev);
   };
 
-  useEffect(() => {
-    try {
-      const savedUser = localStorage.getItem('diyaraUser');
-      if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        setUser(parsedUser);
-        
-        const savedProfileId = localStorage.getItem('diyaraSelectedProfile');
-        if (savedProfileId) {
-          const savedProfile = JSON.parse(savedProfileId);
-          setSelectedProfile(savedProfile);
-          
-          const profileKey = `diyaraProfile_${savedProfile.id}`;
-          const savedProfileData = localStorage.getItem(profileKey);
-          if (savedProfileData) {
-            setUserProfile(JSON.parse(savedProfileData));
-            setIsAwakened(true);
-          }
-          
-          const savedImages = localStorage.getItem(`diyaraImages_${savedProfile.id}`);
-          if (savedImages) setGeneratedImages(JSON.parse(savedImages));
-
-          const savedMissions = localStorage.getItem(`diyaraMissions_${savedProfile.id}`);
-          if (savedMissions) setMissionState(JSON.parse(savedMissions));
-          
-          const savedAudioEntries = localStorage.getItem(`diyaraAudio_${savedProfile.id}`);
-          if (savedAudioEntries) setAudioEntries(JSON.parse(savedAudioEntries));
-        }
-      }
-    } catch (error) {
-        console.error("Failed to parse data from localStorage", error);
-        handleReset();
-    }
-    setIsLoading(false);
-  }, []);
-
   const addToast = (message: string, action?: Toast['action']) => {
     const newToast: Toast = { id: Date.now(), message, action };
     setToasts(prev => [...prev, newToast]);
@@ -367,6 +384,7 @@ const MainApp: React.FC = () => {
     const savedProfileData = localStorage.getItem(profileKey);
     
     if (savedProfileData) {
+      // Returning user - load their data
       setUserProfile(JSON.parse(savedProfileData));
       setIsAwakened(true);
       
@@ -374,18 +392,48 @@ const MainApp: React.FC = () => {
       if (savedMessages) {
         setMessages(JSON.parse(savedMessages));
       }
+      
+      const savedImages = localStorage.getItem(`diyaraImages_${profile.id}`);
+      if (savedImages) setGeneratedImages(JSON.parse(savedImages));
+
+      const savedMissions = localStorage.getItem(`diyaraMissions_${profile.id}`);
+      if (savedMissions) setMissionState(JSON.parse(savedMissions));
+      
+      const savedAudioEntries = localStorage.getItem(`diyaraAudio_${profile.id}`);
+      if (savedAudioEntries) setAudioEntries(JSON.parse(savedAudioEntries));
     } else {
+      // New user - generate greeting
       setIsGeneratingGreeting(true);
       
-      const greeting = await generatePersonalizedGreeting(profile.name, profile.bio);
+      const generatedGreeting = await generatePersonalizedGreeting(profile.name, profile.bio);
+      setGreeting(generatedGreeting);
       
       setMessages([{
         role: 'model',
-        text: greeting
+        text: generatedGreeting
       }]);
       
       setIsGeneratingGreeting(false);
+      setShowGreeting(true);
     }
+  };
+
+  const handleGreetingContinue = () => {
+    setShowGreeting(false);
+    
+    // Check if API key exists
+    const hasApiKey = localStorage.getItem('GROQ_API_KEY');
+    if (!hasApiKey) {
+      setShowApiSetup(true);
+    } else {
+      // Go to onboarding
+      // AwakeningSequence will show automatically
+    }
+  };
+
+  const handleApiSetupComplete = () => {
+    setShowApiSetup(false);
+    // Now go to AwakeningSequence
   };
 
   const handleOnboardingComplete = (profile: UserProfile, name: string) => {
@@ -450,77 +498,83 @@ const MainApp: React.FC = () => {
     setShowParentDashboard(true);
   };
 
-  if (isLoading) {
-      return (
-        <div className="h-screen w-screen flex items-center justify-center bg-black">
-            <DiyaMascot className="w-24 h-24" />
-        </div>
-      );
+  // RENDER LOGIC - NEW FLOW
+  
+  // 1. Access Code Gate
+  if (!user) {
+    return <AuthGate onLogin={handleLogin} />;
   }
 
+  // 2. Profile Selection
+  if (!selectedProfile) {
+    return <ProfileSelection onSelectProfile={handleProfileSelect} />;
+  }
+
+  // 3. Generating Greeting
   if (isGeneratingGreeting) {
-      return <GreetingLoader profileName={selectedProfile?.name || 'Friend'} />;
+    return <GreetingLoader profileName={selectedProfile.name} />;
   }
 
-  const renderAppContent = () => {
-    if (!user) {
-        return <AuthGate onLogin={handleLogin} />;
-    }
-    
-    if (!selectedProfile) {
-        return <ProfileSelection onSelectProfile={handleProfileSelect} />;
-    }
-    
-    if (!userProfile) {
-        return <AwakeningSequence onComplete={handleOnboardingComplete} />;
-    }
-    
-    if (showParentDashboard) {
-        return <ParentDashboard onBack={() => setShowParentDashboard(false)} />;
-    }
+  // 4. Show Greeting
+  if (showGreeting) {
+    return <GreetingScreen profileName={selectedProfile.name} greeting={greeting} onContinue={handleGreetingContinue} />;
+  }
 
-    const renderFeature = () => {
-        switch (activeTab) {
-        case FeatureTab.Galaxy:
-            return <GalaxyView userName={selectedProfile.name} userProfile={userProfile} missionState={missionState} onMissionComplete={handleMissionComplete} />;
-        case FeatureTab.Chat:
-            return <ChatFeature userName={selectedProfile.name} profile={userProfile} messages={messages} setMessages={setMessages} />;
-        case FeatureTab.AudioJournal:
-            return <AudioJournalFeature entries={audioEntries} onEntriesUpdate={handleAudioEntriesUpdate} />;
-        case FeatureTab.Create:
-            return <CreateFeature onImageCreated={handleImageCreated} />;
-        case FeatureTab.Gallery:
-            return <GalleryFeature images={generatedImages} />;
-        case FeatureTab.Garden:
-            return <GardenFeature missionState={missionState} />;
-        case FeatureTab.Talk:
-            return <LiveTalkFeature />;
-        default:
-            return null;
-        }
-    };
+  // 5. API Key Setup (if needed)
+  if (showApiSetup) {
+    return <ApiKeySetup onComplete={handleApiSetupComplete} />;
+  }
 
-    return (
-        <div className="h-screen w-screen flex flex-col">
-            <Header 
-                userName={selectedProfile.name} 
-                onOpenSettings={() => setIsSettingsOpen(true)}
-                isMusicPlaying={isMusicPlaying}
-                onToggleMusic={toggleMusic}
-            />
-            <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
-                {renderFeature()}
-            </main>
-            <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
-        </div>
-    );
+  // 6. Onboarding (AwakeningSequence)
+  if (!userProfile) {
+    return <AwakeningSequence onComplete={handleOnboardingComplete} />;
+  }
+
+  // 7. Parent Dashboard
+  if (showParentDashboard) {
+    return <ParentDashboard onBack={() => setShowParentDashboard(false)} />;
+  }
+
+  // 8. Main App
+  const renderFeature = () => {
+    switch (activeTab) {
+      case FeatureTab.Galaxy:
+        return <GalaxyView userName={selectedProfile.name} userProfile={userProfile} missionState={missionState} onMissionComplete={handleMissionComplete} />;
+      case FeatureTab.Chat:
+        return <ChatFeature userName={selectedProfile.name} profile={userProfile} messages={messages} setMessages={setMessages} />;
+      case FeatureTab.AudioJournal:
+        return <AudioJournalFeature entries={audioEntries} onEntriesUpdate={handleAudioEntriesUpdate} />;
+      case FeatureTab.Create:
+        return <CreateFeature onImageCreated={handleImageCreated} />;
+      case FeatureTab.Gallery:
+        return <GalleryFeature images={generatedImages} />;
+      case FeatureTab.Garden:
+        return <GardenFeature missionState={missionState} />;
+      case FeatureTab.Talk:
+        return <LiveTalkFeature />;
+      default:
+        return null;
+    }
   };
 
   return (
     <>
-      {renderAppContent()}
+      <div className="h-screen w-screen flex flex-col">
+        <Header 
+          userName={selectedProfile.name} 
+          onOpenSettings={() => setIsSettingsOpen(true)}
+          isMusicPlaying={isMusicPlaying}
+          onToggleMusic={toggleMusic}
+        />
+        <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
+          {renderFeature()}
+        </main>
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+      </div>
+      
       {isSettingsOpen && <SettingsModal onClose={() => setIsSettingsOpen(false)} onReset={handleReset} onOpenParentDashboard={openParentDashboard} />}
       {showMusicConsent && <MusicConsentModal onConsent={handleMusicConsent} onDismiss={() => setShowMusicConsent(false)} />}
+      
       <div className="fixed bottom-24 right-4 z-50 flex flex-col gap-2">
         {toasts.map(toast => <ToastComponent key={toast.id} toast={toast} onDismiss={() => removeToast(toast.id)} />)}
       </div>
@@ -528,54 +582,4 @@ const MainApp: React.FC = () => {
   );
 };
 
-// ============================================
-// API KEY CHECK WRAPPER
-// ============================================
-
-const App: React.FC = () => {
-  const [hasApiKey, setHasApiKey] = useState(false);
-  const [isCheckingApiKey, setIsCheckingApiKey] = useState(true);
-  const [showApiSettings, setShowApiSettings] = useState(false);
-
-  useEffect(() => {
-    const apiKey = localStorage.getItem('GROQ_API_KEY');
-    setHasApiKey(!!apiKey);
-    setIsCheckingApiKey(false);
-  }, []);
-
-  if (isCheckingApiKey) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center">
-        <div className="text-white text-2xl flex items-center gap-3">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
-          Loading Diyara...
-        </div>
-      </div>
-    );
-  }
-
-  if (!hasApiKey) {
-    return <WelcomeScreen onComplete={() => setHasApiKey(true)} />;
-  }
-
-  return (
-    <div className="relative">
-      <MainApp />
-      
-      <button
-        onClick={() => setShowApiSettings(true)}
-        className="fixed bottom-6 right-6 bg-slate-800/90 hover:bg-slate-700 backdrop-blur-sm text-white p-4 rounded-full shadow-2xl transition-all transform hover:scale-110 z-[100] border border-slate-600"
-        title="API Key Settings"
-      >
-        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      </button>
-      
-      <ApiKeyModal isOpen={showApiSettings} onClose={() => setShowApiSettings(false)} />
-    </div>
-  );
-};
-
-export default App;
+export default MainApp;
