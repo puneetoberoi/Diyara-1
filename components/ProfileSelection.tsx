@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
+import SoundButton from './SoundButton';
+import { useAudio } from '../utils/AudioManager';
 
 export interface FamilyProfile {
   id: string;
@@ -273,6 +275,12 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   const [showPhotoModal, setShowPhotoModal] = useState(false);
   const [scale, setScale] = useState(1);
   const containerRef = useRef<HTMLDivElement>(null);
+  const audio = useAudio();
+
+  // Play background music when component mounts
+  useEffect(() => {
+    audio.playBackgroundMusic('profileSelection');
+  }, []);
 
   // Calculate scale to fit perfectly without scrolling
   useEffect(() => {
@@ -336,7 +344,12 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
 
   const handleProfileClick = (profile: FamilyProfile) => {
     const updatedProfile = { ...profile, lastUsed: Date.now() };
-    onSelectProfile(updatedProfile);
+    audio.playProfileClick();
+    audio.sayProfileName(profile.id);
+    audio.playTransition();
+    setTimeout(() => {
+      onSelectProfile(updatedProfile);
+    }, 500);
   };
 
   const handleProfileLongPress = (profile: FamilyProfile, e: React.MouseEvent | React.TouchEvent) => {
