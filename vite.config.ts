@@ -15,7 +15,7 @@ export default defineConfig(({ mode }) => {
       // Keep old Gemini for backward compatibility
       'process.env.API_KEY': JSON.stringify(env.GEMINI_API_KEY || env.VITE_BYTEZ_API_KEY),
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
-      // Add new Bytez API
+      // Add new Bytez API and Supabase
       'process.env.VITE_BYTEZ_API_KEY': JSON.stringify(env.VITE_BYTEZ_API_KEY),
       'process.env.VITE_SUPABASE_URL': JSON.stringify(env.VITE_SUPABASE_URL),
       'process.env.VITE_SUPABASE_ANON_KEY': JSON.stringify(env.VITE_SUPABASE_ANON_KEY),
@@ -24,6 +24,10 @@ export default defineConfig(({ mode }) => {
       alias: {
         '@': path.resolve(__dirname, '.'),
       }
+    },
+    build: {
+      outDir: 'dist',
+      emptyOutDir: true,
     }
   };
 });
