@@ -25,9 +25,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-pink-500 to-rose-600',
     bio: "Guiding star & wisdom 💖",
     gender: 'female',
-    orbitRadius: 140,
+    orbitRadius: 160,
     orbitSpeed: 50,
-    planetSize: 60
+    planetSize: 70
   },
   { 
     id: 'dad', 
@@ -35,9 +35,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-blue-500 to-indigo-600',
     bio: "Protector & strength 💪",
     gender: 'male',
-    orbitRadius: 140,
+    orbitRadius: 160,
     orbitSpeed: 58,
-    planetSize: 62
+    planetSize: 72
   },
   { 
     id: 'daadaji', 
@@ -45,9 +45,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-amber-500 to-orange-600',
     bio: "Wise elder 📚",
     gender: 'male',
-    orbitRadius: 190,
+    orbitRadius: 220,
     orbitSpeed: 65,
-    planetSize: 60
+    planetSize: 70
   },
   { 
     id: 'daadiji', 
@@ -55,9 +55,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-purple-500 to-pink-600',
     bio: "Sweetest blessing 🌸",
     gender: 'female',
-    orbitRadius: 190,
+    orbitRadius: 220,
     orbitSpeed: 72,
-    planetSize: 58
+    planetSize: 68
   },
   { 
     id: 'chachu', 
@@ -65,9 +65,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-teal-500 to-cyan-600',
     bio: "Fun companion 🎉",
     gender: 'male',
-    orbitRadius: 240,
+    orbitRadius: 280,
     orbitSpeed: 78,
-    planetSize: 56
+    planetSize: 66
   },
   { 
     id: 'chachi', 
@@ -75,9 +75,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-green-500 to-emerald-600',
     bio: "Gentle soul 🌺",
     gender: 'female',
-    orbitRadius: 240,
+    orbitRadius: 280,
     orbitSpeed: 85,
-    planetSize: 56
+    planetSize: 66
   },
   { 
     id: 'naniji', 
@@ -85,9 +85,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-yellow-500 to-amber-600',
     bio: "Sunshine guardian ☀️",
     gender: 'female',
-    orbitRadius: 290,
+    orbitRadius: 340,
     orbitSpeed: 92,
-    planetSize: 58
+    planetSize: 68
   },
   { 
     id: 'mamu', 
@@ -95,9 +95,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-indigo-500 to-purple-600',
     bio: "Playful friend 🚀",
     gender: 'male',
-    orbitRadius: 290,
+    orbitRadius: 340,
     orbitSpeed: 100,
-    planetSize: 56
+    planetSize: 66
   },
   { 
     id: 'mami', 
@@ -105,9 +105,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-red-500 to-pink-600',
     bio: "Graceful inspiration 🦋",
     gender: 'female',
-    orbitRadius: 340,
+    orbitRadius: 400,
     orbitSpeed: 108,
-    planetSize: 56
+    planetSize: 66
   },
 ];
 
@@ -283,20 +283,16 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
       
-      // Maximum orbit radius from profiles
       const maxRadius = Math.max(...profiles.map(p => p.orbitRadius));
       const maxPlanetSize = Math.max(...profiles.map(p => p.planetSize));
       
-      // Total space needed (diameter + planet size + padding)
-      const neededSpace = (maxRadius * 2) + maxPlanetSize + 100; // 100px padding
-      const sunSize = 140; // Approximate sun size
+      const neededSpace = (maxRadius * 2) + maxPlanetSize + 80;
       
-      // Calculate scale to fit
-      const scaleWidth = (containerWidth - 100) / neededSpace;
-      const scaleHeight = (containerHeight - 200) / neededSpace; // More space for header/footer
+      const scaleWidth = (containerWidth - 80) / neededSpace;
+      const scaleHeight = (containerHeight - 180) / neededSpace;
       
-      const newScale = Math.min(scaleWidth, scaleHeight, 1.2); // Max 1.2x scale
-      setScale(Math.max(newScale, 0.4)); // Min 0.4x scale
+      const newScale = Math.min(scaleWidth, scaleHeight, 1.4); // Max 1.4x scale (bigger!)
+      setScale(Math.max(newScale, 0.5)); // Min 0.5x scale
     };
 
     calculateScale();
@@ -392,8 +388,8 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
         ref={containerRef}
         className="absolute inset-0 flex items-center justify-center"
         style={{ 
-          paddingTop: '60px',
-          paddingBottom: '60px'
+          paddingTop: '50px',
+          paddingBottom: '50px'
         }}
       >
         <div 
@@ -408,13 +404,13 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
             <div className="absolute inset-0 rounded-full bg-yellow-400 blur-[50px] opacity-40 scale-[2]" />
             <div className="absolute inset-0 rounded-full bg-orange-400 blur-[30px] opacity-30 animate-pulse scale-[1.5]" />
             
-            <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-yellow-200/30 overflow-hidden">
+            <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-yellow-200/30 overflow-hidden">
               <DiyaMascot className="w-full h-full object-cover scale-110" />
             </div>
 
             <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-              <p className="text-white font-bold text-sm md:text-lg font-brand drop-shadow-lg">Diyara</p>
-              <p className="text-yellow-400 text-xs">The Sun ☀️</p>
+              <p className="text-white font-bold text-base md:text-xl font-brand drop-shadow-lg">Diyara</p>
+              <p className="text-yellow-400 text-xs md:text-sm">The Sun ☀️</p>
             </div>
           </div>
 
