@@ -8,6 +8,8 @@ import CreateFeature from './components/CreateFeature';
 import GardenFeature from './components/GardenFeature';
 import LiveTalkFeature from './components/LiveTalkFeature';
 import GalleryFeature from './components/GalleryFeature';
+import AudioJournalFeature from './components/AudioJournalFeature';
+import AuthGate from './components/AuthGate';
 import ApiKeySetup from './components/ApiKeySetup';
 import SettingsModal from './components/SettingsModal';
 import ToastComponent from './components/Toast';
