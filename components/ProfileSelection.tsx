@@ -111,47 +111,29 @@ const defaultProfiles: FamilyProfile[] = [
   },
 ];
 
-// Turban Avatar SVG
-const TurbanAvatar: React.FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
-    <ellipse cx="60" cy="65" rx="35" ry="38" fill="#F4D03F" />
-    <ellipse cx="60" cy="38" rx="40" ry="28" fill="#E67E22" />
-    <path d="M25 38 Q35 32 60 32 Q85 32 95 38" stroke="#D35400" strokeWidth="4" fill="none" opacity="0.8" />
-    <path d="M22 42 Q33 36 60 36 Q87 36 98 42" stroke="#D35400" strokeWidth="3.5" fill="none" opacity="0.7" />
-    <path d="M20 46 Q31 40 60 40 Q89 40 100 46" stroke="#D35400" strokeWidth="3" fill="none" opacity="0.6" />
-    <ellipse cx="60" cy="22" rx="16" ry="11" fill="#E67E22" />
-    <ellipse cx="60" cy="20" rx="12" ry="8" fill="#D35400" opacity="0.7" />
-    <ellipse cx="48" cy="62" rx="4" ry="5" fill="#2C3E50" />
-    <ellipse cx="72" cy="62" rx="4" ry="5" fill="#2C3E50" />
-    <circle cx="49" cy="61" r="1.5" fill="white" />
-    <circle cx="73" cy="61" r="1.5" fill="white" />
-    <path d="M42 55 Q48 52 54 55" stroke="#2C3E50" strokeWidth="3" strokeLinecap="round" fill="none" />
-    <path d="M66 55 Q72 52 78 55" stroke="#2C3E50" strokeWidth="3" strokeLinecap="round" fill="none" />
-    <path d="M38 72 Q35 85 40 95 Q45 100 60 102 Q75 100 80 95 Q85 85 82 72 Q78 75 72 78 Q65 80 60 80 Q55 80 48 78 Q42 75 38 72 Z" fill="#1A252F" />
-    <path d="M48 73 Q54 76 60 76 Q66 76 72 73" stroke="#1A252F" strokeWidth="3" strokeLinecap="round" />
-    <path d="M52 77 Q60 80 68 77" stroke="#C85A54" strokeWidth="1.5" fill="none" opacity="0.7" />
-  </svg>
-);
+// Simple Avatar Component - Using Emojis (Guaranteed to work!)
+const SimpleAvatar: React.FC<{ profile: FamilyProfile }> = ({ profile }) => {
+  // Different emojis for each person
+  const avatarEmojis: Record<string, string> = {
+    'mom': '👩',
+    'dad': '👳‍♂️',
+    'daadaji': '👴🏻',
+    'daadiji': '👵🏻', 
+    'chachu': '🧔',
+    'chachi': '👩🏻',
+    'naniji': '👵',
+    'mamu': '🧔🏻',
+    'mami': '👩🏻‍🦱'
+  };
 
-// Female Avatar SVG
-const FemaleAvatar: React.FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
-    <ellipse cx="60" cy="45" rx="42" ry="48" fill="#6F4E37" />
-    <ellipse cx="30" cy="60" rx="15" ry="35" fill="#6F4E37" />
-    <ellipse cx="90" cy="60" rx="15" ry="35" fill="#6F4E37" />
-    <ellipse cx="60" cy="60" rx="32" ry="36" fill="#F4D03F" />
-    <ellipse cx="50" cy="56" rx="4" ry="5" fill="#2C3E50" />
-    <ellipse cx="70" cy="56" rx="4" ry="5" fill="#2C3E50" />
-    <circle cx="51" cy="55" r="1.5" fill="white" />
-    <circle cx="71" cy="55" r="1.5" fill="white" />
-    <path d="M43 49 Q50 46 57 49" stroke="#6F4E37" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-    <path d="M63 49 Q70 46 77 49" stroke="#6F4E37" strokeWidth="2.5" strokeLinecap="round" fill="none" />
-    <path d="M48 72 Q60 78 72 72" stroke="#C85A54" strokeWidth="2.5" fill="none" strokeLinecap="round" />
-    <circle cx="60" cy="45" r="2.5" fill="#E74C3C" />
-    <circle cx="28" cy="65" r="4" fill="#FFD700" opacity="0.9" />
-    <circle cx="92" cy="65" r="4" fill="#FFD700" opacity="0.9" />
-  </svg>
-);
+  const emoji = avatarEmojis[profile.id] || (profile.gender === 'male' ? '👨' : '👩');
+
+  return (
+    <div className="w-full h-full flex items-center justify-center text-6xl md:text-7xl bg-gradient-to-br from-white/10 to-transparent">
+      {emoji}
+    </div>
+  );
+};
 
 // Photo Upload Modal Component
 const PhotoUploadModal: React.FC<{
@@ -215,7 +197,6 @@ const PhotoUploadModal: React.FC<{
           ref={fileInputRef}
           type="file"
           accept="image/*"
-          capture="user"
           onChange={handleFileSelect}
           className="hidden"
         />
@@ -384,48 +365,58 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                     }}
                   >
                     <div style={{ transform: `translate(${x}px, ${y}px)` }}>
-                      <button
-                        onClick={() => handleProfileClick(profile)}
-                        onTouchStart={(e) => {
-                          const timeout = setTimeout(() => {
+                      <div className="flex flex-col items-center gap-2">
+                        <button
+                          onClick={() => handleProfileClick(profile)}
+                          onTouchStart={(e) => {
+                            const target = e.currentTarget;
+                            const timeout = setTimeout(() => {
+                              handleProfileLongPress(profile);
+                            }, 500);
+                            (target as any)._longPressTimeout = timeout;
+                          }}
+                          onTouchEnd={(e) => {
+                            const target = e.currentTarget;
+                            clearTimeout((target as any)._longPressTimeout);
+                          }}
+                          onContextMenu={(e) => {
+                            e.preventDefault();
                             handleProfileLongPress(profile);
-                          }, 500);
-                          (e.target as any)._longPressTimeout = timeout;
-                        }}
-                        onTouchEnd={(e) => {
-                          clearTimeout((e.target as any)._longPressTimeout);
-                        }}
-                        onContextMenu={(e) => {
-                          e.preventDefault();
-                          handleProfileLongPress(profile);
-                        }}
-                        onMouseEnter={() => setHoveredProfile(profile.id)}
-                        onMouseLeave={() => setHoveredProfile(null)}
-                        className={`relative group transition-all duration-300 ${isHovered ? 'scale-125 z-30' : 'scale-100 z-10'}`}
-                        style={{ padding: '15px', margin: '-15px' }}
-                      >
-                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl md:blur-2xl opacity-70 scale-[1.8] md:scale-[2] ${isHovered ? 'animate-pulse' : ''}`} style={{ pointerEvents: 'none' }} />
-                        
-                        <div
-                          className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-3 md:border-4 border-white/50 shadow-2xl overflow-hidden transition-all duration-300 ${isHovered ? 'border-white' : ''}`}
-                          style={{ width: `${planetSize}px`, height: `${planetSize}px` }}
+                          }}
+                          onMouseEnter={() => setHoveredProfile(profile.id)}
+                          onMouseLeave={() => setHoveredProfile(null)}
+                          className={`relative group transition-all duration-300 ${isHovered ? 'scale-125 z-30' : 'scale-100 z-10'}`}
+                          style={{ padding: '20px', margin: '-20px' }}
                         >
-                          {profile.avatarUrl ? (
-                            <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
-                          ) : profile.gender === 'male' ? (
-                            <TurbanAvatar size={planetSize} />
-                          ) : (
-                            <FemaleAvatar size={planetSize} />
-                          )}
-                        </div>
-
-                        {isHovered && (
-                          <div className="fixed top-20 md:top-24 left-1/2 -translate-x-1/2 bg-black/95 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-white/40 whitespace-nowrap animate-fadeIn z-[100] shadow-2xl max-w-[90vw]">
-                            <p className="text-white font-bold text-sm md:text-lg mb-1">{profile.name}</p>
-                            <p className="text-gray-300 text-xs md:text-sm">{profile.bio}</p>
+                          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl md:blur-2xl opacity-70 scale-[1.8] md:scale-[2] ${isHovered ? 'animate-pulse' : ''}`} style={{ pointerEvents: 'none' }} />
+                          
+                          <div
+                            className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-3 md:border-4 border-white/50 shadow-2xl overflow-hidden transition-all duration-300 ${isHovered ? 'border-white' : ''}`}
+                            style={{ width: `${planetSize}px`, height: `${planetSize}px` }}
+                          >
+                            {profile.avatarUrl ? (
+                              <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+                            ) : (
+                              <SimpleAvatar profile={profile} />
+                            )}
                           </div>
-                        )}
-                      </button>
+
+                          {isHovered && (
+                            <div className="fixed top-20 md:top-24 left-1/2 -translate-x-1/2 bg-black/95 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-white/40 whitespace-nowrap animate-fadeIn z-[100] shadow-2xl max-w-[90vw]">
+                              <p className="text-white font-bold text-sm md:text-lg mb-1">{profile.name}</p>
+                              <p className="text-gray-300 text-xs md:text-sm">{profile.bio}</p>
+                              <p className="text-yellow-400 text-xs mt-1">Long press to add photo</p>
+                            </div>
+                          )}
+                        </button>
+                        
+                        {/* Name label under planet - ALWAYS VISIBLE */}
+                        <div className="text-center bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+                          <p className="text-white text-xs md:text-sm font-semibold whitespace-nowrap">
+                            {profile.name}
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -442,9 +433,26 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
         </div>
       </div>
 
-      {/* New Journey Button */}
+      {/* New Journey Button - WORKING */}
       <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2">
-        <button className="px-6 md:px-8 py-3 md:py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl flex items-center gap-2 md:gap-3">
+        <button 
+          onClick={() => {
+            // Create a new profile template
+            const newProfileId = `user_${Date.now()}`;
+            const newProfile: FamilyProfile = {
+              id: newProfileId,
+              name: 'New Profile',
+              color: 'from-purple-500 to-pink-500',
+              bio: 'New journey begins! ✨',
+              gender: 'female',
+              orbitRadius: 200,
+              orbitSpeed: 60,
+              planetSize: 70
+            };
+            handleProfileClick(newProfile);
+          }}
+          className="px-6 md:px-8 py-3 md:py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl flex items-center gap-2 md:gap-3"
+        >
           <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/20 flex items-center justify-center">
             <span className="text-lg md:text-xl text-white font-bold">+</span>
           </div>
