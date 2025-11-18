@@ -1,11 +1,9 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { useAudio } from '../utils/AudioManager';
 
 interface HeaderProps {
   userName: string;
   onOpenSettings: () => void;
-  isMusicPlaying: boolean;
-  onToggleMusic: () => void;
-  profileBio?: string; // Add profile relationship/bio
 }
 
 // Personalized messages for each family member
@@ -21,18 +19,27 @@ const personalizedMessages: Record<string, string> = {
   'Mami': 'Graceful Mami Ji 🌸',
 };
 
-const Header: React.FC<HeaderProps> = ({ 
-  userName, 
-  onOpenSettings, 
-  isMusicPlaying, 
-  onToggleMusic 
-}) => {
+const Header: React.FC<HeaderProps> = ({ userName, onOpenSettings }) => {
+  const audio = useAudio();
+  const [soundsEnabled, setSoundsEnabled] = useState(audio.isSoundsEnabled());
+
   // Get personalized message or default
   const personalMessage = personalizedMessages[userName] || `Hello, ${userName}`;
 
+  const toggleSounds = () => {
+    const newState = !soundsEnabled;
+    setSoundsEnabled(newState);
+    audio.toggleSounds(newState);
+    
+    // Play a quick sound to confirm if enabling
+    if (newState) {
+      audio.playSuccess();
+    }
+  };
+
   return (
     <header className="sticky top-0 z-50 bg-gradient-to-r from-purple-900 via-purple-800 to-indigo-900 border-b-2 border-purple-700/50 backdrop-blur-lg">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-3 sm:py-4">
+      <div className="w-full px-3 sm:px-4 py-3 sm:py-4">
         <div className="flex items-center justify-between gap-2">
           {/* Left: Profile info with personalized message */}
           <div className="flex items-center gap-2 sm:gap-3 min-w-0 flex-1">
@@ -57,14 +64,18 @@ const Header: React.FC<HeaderProps> = ({
 
           {/* Right: Controls */}
           <div className="flex items-center gap-2 flex-shrink-0">
-            {/* Music toggle */}
+            {/* Sound toggle */}
             <button
-              onClick={onToggleMusic}
-              className="p-2 sm:p-2.5 rounded-lg bg-purple-800/50 hover:bg-purple-700/50 border border-purple-600/50 transition-all transform hover:scale-110 active:scale-95"
-              aria-label="Toggle music"
+              onClick={toggleSounds}
+              className={`p-2 sm:p-2.5 rounded-lg border transition-all transform hover:scale-110 active:scale-95 ${
+                soundsEnabled 
+                  ? 'bg-yellow-500/20 border-yellow-500/50 hover:bg-yellow-500/30' 
+                  : 'bg-purple-800/50 border-purple-600/50 hover:bg-purple-700/50'
+              }`}
+              aria-label="Toggle sounds"
             >
               <span className="text-lg sm:text-xl">
-                {isMusicPlaying ? '🎵' : '🔇'}
+                {soundsEnabled ? '🔔' : '🔕'}
               </span>
             </button>
 
