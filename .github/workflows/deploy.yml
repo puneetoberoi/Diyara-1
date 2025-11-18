@@ -39,7 +39,8 @@ jobs:
               "react-markdown": "^9.0.0",
               "rehype-highlight": "^7.0.0",
               "@google/genai": "^1.29.1",
-              "groq-sdk": "^0.7.0"
+              "groq-sdk": "^0.7.0",
+              "@supabase/supabase-js": "^2.39.0"
             },
             "devDependencies": {
               "@types/node": "^20.0.0",
