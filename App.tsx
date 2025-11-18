@@ -217,21 +217,32 @@ function getDefaultGreeting(profileName: string, relation: string): string {
 
 // Greeting Display Component
 const GreetingScreen: React.FC<{ 
-  profileName: string; 
+  profile: FamilyProfile;
   greeting: string;
   onContinue: () => void;
-}> = ({ profileName, greeting, onContinue }) => {
-  const relTerms = relationshipTerms[profileName] || { punjabi: profileName };
+}> = ({ profile, greeting, onContinue }) => {
+  const relTerms = relationshipTerms[profile.name] || { punjabi: profile.name };
 
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
       <div className="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center text-center">
-        {/* Diyara mascot */}
+        {/* Profile Avatar or Diyara mascot */}
         <div className="mb-6 relative">
           <div className="absolute inset-0 rounded-full bg-yellow-400 blur-3xl opacity-60 scale-150 animate-pulse" />
-          <div className="relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-4 border-yellow-200/30 overflow-hidden">
-            <DiyaMascot className="w-full h-full object-cover scale-110" />
+          <div className={`relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br ${profile.avatarUrl ? profile.color : 'from-yellow-300 via-yellow-400 to-orange-500'} flex items-center justify-center shadow-2xl border-4 border-yellow-200/30 overflow-hidden`}>
+            {profile.avatarUrl ? (
+              <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
+            ) : (
+              <DiyaMascot className="w-full h-full object-cover scale-110" />
+            )}
           </div>
+        </div>
+
+        {/* Profile name badge */}
+        <div className="mb-4 px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full">
+          <p className="text-black font-bold text-lg sm:text-xl">
+            {relTerms.punjabi}
+          </p>
         </div>
 
         {/* Greeting */}
@@ -248,6 +259,9 @@ const GreetingScreen: React.FC<{
         >
           Continue to Setup ✨
         </button>
+
+        {/* Fun emoji decoration */}
+        <p className="text-4xl mt-6 animate-bounce">🌟</p>
       </div>
     </div>
   );
@@ -517,7 +531,7 @@ const MainApp: React.FC = () => {
 
   // 4. Show Greeting
   if (showGreeting) {
-    return <GreetingScreen profileName={selectedProfile.name} greeting={greeting} onContinue={handleGreetingContinue} />;
+    return <GreetingScreen profile={selectedProfile} greeting={greeting} onContinue={handleGreetingContinue} />;
   }
 
   // 5. API Key Setup (if needed)
@@ -527,7 +541,7 @@ const MainApp: React.FC = () => {
 
   // 6. Onboarding (AwakeningSequence)
   if (!userProfile) {
-    return <AwakeningSequence onComplete={handleOnboardingComplete} />;
+    return <AwakeningSequence onComplete={handleOnboardingComplete} profileName={selectedProfile.name} />;
   }
 
   // 7. Parent Dashboard
