@@ -110,15 +110,17 @@ jobs:
       - name: Organize files into src
         run: |
           mkdir -p src
-          for file in *.tsx *.ts; do
+          # Move TypeScript files and CSS files
+          for file in *.tsx *.ts *.css; do
             if [ -f "$file" ] && [ "$file" != "vite.config.ts" ]; then
               mv "$file" src/ 2>/dev/null || true
             fi
           done
+          # Move directories
           [ -d "components" ] && mv components src/ || true
           [ -d "data" ] && mv data src/ || true
           [ -d "hooks" ] && mv hooks src/ || true
-          [ -d "utils" ] && mv utils src/ || true
+          [ -d "utils" ] && mv utils src/ || true     
 
       - name: Fix API key references
         run: |
