@@ -143,6 +143,7 @@ const PhotoUploadModal: React.FC<{
   onSave: (profileId: string, photoUrl: string) => void;
 }> = ({ isOpen, profile, onClose, onSave }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
 
   if (!isOpen || !profile) return null;
@@ -184,33 +185,52 @@ const PhotoUploadModal: React.FC<{
           <div className={`w-48 h-48 mx-auto rounded-full overflow-hidden border-4 bg-gradient-to-br ${profile.color} flex items-center justify-center`}>
             {preview || profile.avatarUrl ? (
               <img src={preview || profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
-            ) : profile.gender === 'male' ? (
-              <TurbanAvatar size={192} />
             ) : (
-              <FemaleAvatar size={192} />
+              <SimpleAvatar profile={profile} />
             )}
           </div>
         </div>
 
-        {/* Upload Button */}
+        {/* Photo Selection Buttons */}
         <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
           onChange={handleFileSelect}
-          className="hidden"
+          style={{ display: 'none' }}
+        />
+        
+        <input
+          ref={cameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
         />
 
         <div className="space-y-3">
+          {/* Gallery Button */}
           <button
             onClick={() => fileInputRef.current?.click()}
             className="w-full py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-3"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+            {preview || profile.avatarUrl ? 'Change from Gallery' : 'Choose from Gallery'}
+          </button>
+
+          {/* Camera Button */}
+          <button
+            onClick={() => cameraInputRef.current?.click()}
+            className="w-full py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-3"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
-            {preview || profile.avatarUrl ? 'Change Photo' : 'Add Photo'}
+            Take Photo with Camera
           </button>
 
           {preview && (
@@ -218,7 +238,7 @@ const PhotoUploadModal: React.FC<{
               onClick={handleSave}
               className="w-full py-4 bg-green-600 hover:bg-green-500 text-white font-bold rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
             >
-              Save Photo
+              💾 Save Photo
             </button>
           )}
 
@@ -227,7 +247,7 @@ const PhotoUploadModal: React.FC<{
               onClick={handleRemove}
               className="w-full py-3 bg-red-600/80 hover:bg-red-600 text-white font-semibold rounded-xl transition-all"
             >
-              Remove Photo
+              🗑️ Remove Photo
             </button>
           )}
 
@@ -243,7 +263,7 @@ const PhotoUploadModal: React.FC<{
         </div>
 
         <p className="text-gray-400 text-xs text-center mt-4">
-          📸 Take a photo or choose from gallery
+          📸 Choose from gallery or take a new photo
         </p>
       </div>
     </div>
@@ -285,10 +305,37 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
     setShowPhotoModal(true);
   };
 
+  // Long press handler for touch devices
+  const useLongPress = (profile: FamilyProfile) => {
+    let timerId: NodeJS.Timeout | null = null;
+
+    return {
+      onTouchStart: () => {
+        timerId = setTimeout(() => {
+          handleProfileLongPress(profile);
+        }, 500);
+      },
+      onTouchEnd: () => {
+        if (timerId) {
+          clearTimeout(timerId);
+        }
+      },
+      onTouchMove: () => {
+        if (timerId) {
+          clearTimeout(timerId);
+        }
+      },
+      onContextMenu: (e: React.MouseEvent) => {
+        e.preventDefault();
+        handleProfileLongPress(profile);
+      }
+    };
+  };
+
   return (
     <div className="min-h-screen max-h-screen overflow-hidden w-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 relative flex items-center justify-center">
       {/* Stars */}
-      <div className="absolute inset-0 overflow-hidden">
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(100)].map((_, i) => (
           <div
             key={`star-${i}`}
@@ -332,7 +379,7 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
           </div>
         </div>
 
-        {/* Orbiting Planets */}
+        {/* Orbiting Planets - ALL CLICKABLE */}
         <div className="absolute inset-0 flex items-center justify-center">
           {profiles.map((profile, index) => {
             const angle = (index / profiles.length) * 2 * Math.PI;
@@ -342,16 +389,17 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
             const isHovered = hoveredProfile === profile.id;
             const planetSize = window.innerWidth < 768 ? profile.planetSize * 0.8 : profile.planetSize;
 
+            const longPressHandlers = useLongPress(profile);
+
             return (
               <React.Fragment key={profile.id}>
                 {/* Orbit ring */}
                 <div
-                  className="absolute top-1/2 left-1/2 rounded-full border border-purple-400/20"
+                  className="absolute top-1/2 left-1/2 rounded-full border border-purple-400/20 pointer-events-none"
                   style={{
                     width: `${profile.orbitRadius * 2 * scaleFactor}px`,
                     height: `${profile.orbitRadius * 2 * scaleFactor}px`,
                     transform: 'translate(-50%, -50%)',
-                    pointerEvents: 'none',
                   }}
                 />
 
@@ -368,24 +416,10 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                       <div className="flex flex-col items-center gap-2">
                         <button
                           onClick={() => handleProfileClick(profile)}
-                          onTouchStart={(e) => {
-                            const target = e.currentTarget;
-                            const timeout = setTimeout(() => {
-                              handleProfileLongPress(profile);
-                            }, 500);
-                            (target as any)._longPressTimeout = timeout;
-                          }}
-                          onTouchEnd={(e) => {
-                            const target = e.currentTarget;
-                            clearTimeout((target as any)._longPressTimeout);
-                          }}
-                          onContextMenu={(e) => {
-                            e.preventDefault();
-                            handleProfileLongPress(profile);
-                          }}
+                          {...longPressHandlers}
                           onMouseEnter={() => setHoveredProfile(profile.id)}
                           onMouseLeave={() => setHoveredProfile(null)}
-                          className={`relative group transition-all duration-300 ${isHovered ? 'scale-125 z-30' : 'scale-100 z-10'}`}
+                          className={`relative group transition-all duration-300 cursor-pointer ${isHovered ? 'scale-125 z-30' : 'scale-100 z-10'}`}
                           style={{ padding: '20px', margin: '-20px' }}
                         >
                           <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl md:blur-2xl opacity-70 scale-[1.8] md:scale-[2] ${isHovered ? 'animate-pulse' : ''}`} style={{ pointerEvents: 'none' }} />
@@ -411,7 +445,7 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                         </button>
                         
                         {/* Name label under planet - ALWAYS VISIBLE */}
-                        <div className="text-center bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20">
+                        <div className="text-center bg-black/60 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20 pointer-events-none">
                           <p className="text-white text-xs md:text-sm font-semibold whitespace-nowrap">
                             {profile.name}
                           </p>
@@ -431,33 +465,6 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
             );
           })}
         </div>
-      </div>
-
-      {/* New Journey Button - WORKING */}
-      <div className="absolute bottom-4 md:bottom-8 left-1/2 -translate-x-1/2">
-        <button 
-          onClick={() => {
-            // Create a new profile template
-            const newProfileId = `user_${Date.now()}`;
-            const newProfile: FamilyProfile = {
-              id: newProfileId,
-              name: 'New Profile',
-              color: 'from-purple-500 to-pink-500',
-              bio: 'New journey begins! ✨',
-              gender: 'female',
-              orbitRadius: 200,
-              orbitSpeed: 60,
-              planetSize: 70
-            };
-            handleProfileClick(newProfile);
-          }}
-          className="px-6 md:px-8 py-3 md:py-4 rounded-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 transition-all duration-300 hover:scale-105 active:scale-95 shadow-2xl flex items-center gap-2 md:gap-3"
-        >
-          <div className="w-6 h-6 md:w-8 md:h-8 rounded-full bg-white/20 flex items-center justify-center">
-            <span className="text-lg md:text-xl text-white font-bold">+</span>
-          </div>
-          <span className="text-white font-semibold text-sm md:text-lg">New Journey</span>
-        </button>
       </div>
 
       {/* Photo Upload Modal */}
