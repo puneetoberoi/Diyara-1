@@ -222,110 +222,141 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
       </div>
 
       {/* Solar System Container */}
-      <div className="relative w-full h-full flex items-center justify-center">
+      <div className="relative w-full h-full flex items-center justify-center" style={{ minHeight: '600px' }}>
         {/* Sun - Baby Diyara in center */}
         <div className="relative z-20">
-          {/* Sun glow layers */}
-          <div className="absolute inset-0 rounded-full bg-yellow-400 blur-3xl opacity-40 animate-pulse scale-150" />
-          <div className="absolute inset-0 rounded-full bg-orange-400 blur-2xl opacity-30 animate-pulse scale-125" />
+          {/* Back glow - large and prominent */}
+          <div className="absolute inset-0 rounded-full bg-yellow-400 blur-[100px] opacity-60 scale-[3]" 
+               style={{ zIndex: -1 }} />
+          <div className="absolute inset-0 rounded-full bg-orange-400 blur-[80px] opacity-50 animate-pulse scale-[2.5]" 
+               style={{ zIndex: -1 }} />
+          <div className="absolute inset-0 rounded-full bg-yellow-300 blur-[60px] opacity-40 animate-pulse scale-[2]" 
+               style={{ zIndex: -1, animationDelay: '0.5s' }} />
           
-          {/* Sun core */}
-          <div className="relative w-24 h-24 md:w-32 md:h-32 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-4 border-yellow-200/50">
-            <DiyaMascot className="w-16 h-16 md:w-20 md:h-20" />
+          {/* Sun core - bigger and less border */}
+          <div className="relative w-40 h-40 md:w-48 md:h-48 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-yellow-200/30 overflow-hidden">
+            {/* Photo fills the circle */}
+            <DiyaMascot className="w-full h-full object-cover scale-110" />
           </div>
 
           {/* Sun rays */}
           {[...Array(12)].map((_, i) => (
             <div
               key={`ray-${i}`}
-              className="absolute top-1/2 left-1/2 w-1 h-16 bg-gradient-to-t from-yellow-400 to-transparent origin-bottom"
+              className="absolute top-1/2 left-1/2 w-2 h-24 md:h-32 bg-gradient-to-t from-yellow-400 to-transparent origin-bottom"
               style={{
                 transform: `translate(-50%, -100%) rotate(${i * 30}deg)`,
-                opacity: 0.3,
+                opacity: 0.4,
                 animation: `pulse 2s infinite ${i * 0.1}s`,
+                zIndex: -1,
               }}
             />
           ))}
 
           {/* Diyara label */}
-          <div className="absolute -bottom-12 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-            <p className="text-white font-bold text-lg md:text-xl font-brand">Diyara</p>
-            <p className="text-yellow-400 text-xs md:text-sm">The Sun ☀️</p>
+          <div className="absolute -bottom-16 md:-bottom-20 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
+            <p className="text-white font-bold text-xl md:text-2xl font-brand drop-shadow-lg">Diyara</p>
+            <p className="text-yellow-400 text-sm md:text-base">The Sun ☀️</p>
           </div>
         </div>
 
         {/* Orbiting Planets - Family Members */}
-        {defaultProfiles.map((profile, index) => {
-          const angle = (index / defaultProfiles.length) * 2 * Math.PI;
-          const radius = profile.orbitRadius;
-          const x = Math.cos(angle) * radius;
-          const y = Math.sin(angle) * radius;
-          const isHovered = hoveredProfile === profile.id;
-          const isSelected = selectedProfile?.id === profile.id;
+        <div className="absolute inset-0 flex items-center justify-center">
+          {defaultProfiles.map((profile, index) => {
+            const angle = (index / defaultProfiles.length) * 2 * Math.PI;
+            const x = Math.cos(angle) * profile.orbitRadius;
+            const y = Math.sin(angle) * profile.orbitRadius;
+            const isHovered = hoveredProfile === profile.id;
+            const isSelected = selectedProfile?.id === profile.id;
 
-          return (
-            <React.Fragment key={profile.id}>
-              {/* Orbit path */}
-              <div
-                className="absolute top-1/2 left-1/2 rounded-full border border-white/10"
-                style={{
-                  width: `${radius * 2}px`,
-                  height: `${radius * 2}px`,
-                  transform: 'translate(-50%, -50%)',
-                  pointerEvents: 'none',
-                }}
-              />
+            return (
+              <React.Fragment key={profile.id}>
+                {/* Orbit path */}
+                <div
+                  className="absolute top-1/2 left-1/2 rounded-full border border-purple-400/20"
+                  style={{
+                    width: `${profile.orbitRadius * 2}px`,
+                    height: `${profile.orbitRadius * 2}px`,
+                    transform: 'translate(-50%, -50%)',
+                    pointerEvents: 'none',
+                  }}
+                />
 
-              {/* Planet */}
-              <div
-                className="absolute top-1/2 left-1/2 transition-all duration-300"
-                style={{
-                  transform: `translate(-50%, -50%) translate(${x}px, ${y}px)`,
-                  animation: `orbit ${profile.orbitSpeed}s linear infinite`,
-                  animationDelay: `${-index * (profile.orbitSpeed / defaultProfiles.length)}s`,
-                }}
-              >
-                <button
-                  onClick={() => handleProfileClick(profile)}
-                  onMouseEnter={() => setHoveredProfile(profile.id)}
-                  onMouseLeave={() => setHoveredProfile(null)}
-                  className={`relative group transition-all duration-300 ${
-                    isHovered || isSelected ? 'scale-125 z-30' : 'scale-100'
-                  }`}
+                {/* Planet with orbit animation */}
+                <div
+                  className="absolute top-1/2 left-1/2"
+                  style={{
+                    transform: `translate(-50%, -50%)`,
+                  }}
                 >
-                  {/* Planet glow */}
-                  <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl opacity-50 scale-150 ${isHovered ? 'animate-pulse' : ''}`} />
-                  
-                  {/* Planet surface with avatar */}
                   <div
-                    className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-4 border-white/30 shadow-2xl overflow-hidden`}
+                    className="absolute"
                     style={{
-                      width: `${profile.planetSize}px`,
-                      height: `${profile.planetSize}px`,
+                      animation: `orbit-${profile.id} ${profile.orbitSpeed}s linear infinite`,
+                      transformOrigin: '0 0',
                     }}
                   >
-                    {/* Avatar */}
-                    <div className="w-full h-full flex items-center justify-center">
-                      {profile.gender === 'male' ? (
-                        <TurbanAvatar size={profile.planetSize} />
-                      ) : (
-                        <FemaleAvatar size={profile.planetSize} />
-                      )}
+                    <div
+                      style={{
+                        transform: `translate(${x}px, ${y}px)`,
+                      }}
+                    >
+                      <button
+                        onClick={() => handleProfileClick(profile)}
+                        onMouseEnter={() => setHoveredProfile(profile.id)}
+                        onMouseLeave={() => setHoveredProfile(null)}
+                        className={`relative group transition-all duration-300 ${
+                          isHovered || isSelected ? 'scale-125 z-30' : 'scale-100 z-10'
+                        }`}
+                      >
+                        {/* Planet glow */}
+                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl opacity-60 scale-150 ${isHovered ? 'animate-pulse' : ''}`} />
+                        
+                        {/* Planet surface with avatar */}
+                        <div
+                          className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-4 border-white/40 shadow-2xl overflow-hidden`}
+                          style={{
+                            width: `${profile.planetSize}px`,
+                            height: `${profile.planetSize}px`,
+                          }}
+                        >
+                          {/* Avatar */}
+                          <div className="w-full h-full flex items-center justify-center">
+                            {profile.gender === 'male' ? (
+                              <TurbanAvatar size={profile.planetSize} />
+                            ) : (
+                              <FemaleAvatar size={profile.planetSize} />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Planet info on hover */}
+                        {isHovered && (
+                          <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-md px-4 py-3 rounded-xl border border-white/30 whitespace-nowrap animate-fadeIn z-50 shadow-2xl">
+                            <p className="text-white font-bold text-sm mb-1">{profile.name}</p>
+                            <p className="text-gray-300 text-xs">{profile.bio}</p>
+                          </div>
+                        )}
+                      </button>
                     </div>
                   </div>
+                </div>
 
-                  {/* Planet info on hover */}
-                  {isHovered && (
-                    <div className="absolute -bottom-20 left-1/2 -translate-x-1/2 bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/20 whitespace-nowrap animate-fadeIn">
-                      <p className="text-white font-bold text-sm">{profile.name}</p>
-                      <p className="text-gray-300 text-xs">{profile.bio}</p>
-                    </div>
-                  )}
-                </button>
-              </div>
-            </React.Fragment>
-          );
-        })}
+                {/* Unique keyframe for each planet's orbit */}
+                <style key={`orbit-style-${profile.id}`}>{`
+                  @keyframes orbit-${profile.id} {
+                    from {
+                      transform: rotate(0deg);
+                    }
+                    to {
+                      transform: rotate(360deg);
+                    }
+                  }
+                `}</style>
+              </React.Fragment>
+            );
+          })}
+        </div>
       </div>
 
       {/* New Journey button */}
@@ -345,15 +376,6 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
           50% { opacity: 1; }
         }
 
-        @keyframes orbit {
-          from {
-            transform: translate(-50%, -50%) rotate(0deg) translateX(var(--orbit-radius)) rotate(0deg);
-          }
-          to {
-            transform: translate(-50%, -50%) rotate(360deg) translateX(var(--orbit-radius)) rotate(-360deg);
-          }
-        }
-
         @keyframes fadeIn {
           from {
             opacity: 0;
@@ -367,7 +389,7 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
 
         @keyframes pulse {
           0%, 100% {
-            opacity: 0.3;
+            opacity: 0.4;
           }
           50% {
             opacity: 0.8;
