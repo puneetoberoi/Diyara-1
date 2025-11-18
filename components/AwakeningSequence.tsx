@@ -1,127 +1,128 @@
 import React, { useState } from 'react';
-import DiyaMascot from './DiyaMascot';
 import { UserProfile } from '../types';
+import DiyaMascot from './DiyaMascot';
 
-type Stage = 'nameEntry' | 'calibration' | 'universeCreation' | 'finalizing';
-
-interface AwakeningProps {
+interface AwakeningSequenceProps {
   onComplete: (profile: UserProfile, name: string) => void;
+  profileName?: string; // Profile name passed from selection
 }
 
-const ageGroups = ["5-7", "8-11", "12-14", "15-18", "18+"];
-const galaxies = [
-  { name: "NEXUS PRIME", topic: "AI Fundamentals", visual: "bg-gradient-to-br from-purple-500 to-indigo-800", preview: "Where machines learn to dream" },
-  { name: "ARTIFICA", topic: "Digital Creativity", visual: "bg-gradient-to-br from-pink-500 to-rose-700", preview: "Where imagination meets intelligence" },
-  { name: "MECHANICA", topic: "Robotics & Automation", visual: "bg-gradient-to-br from-gray-600 to-slate-800", preview: "Where metal comes to life" },
-  { name: "FUTURA", topic: "Tomorrow's Technology", visual: "bg-gradient-to-br from-teal-500 to-cyan-700", preview: "Where the impossible becomes possible" }
-];
+const AwakeningSequence: React.FC<AwakeningSequenceProps> = ({ onComplete, profileName }) => {
+  const [step, setStep] = useState(1);
+  const [selectedTopic, setSelectedTopic] = useState<string | null>(null);
 
-const StageWrapper: React.FC<{ children: React.ReactNode, isVisible: boolean }> = ({ children, isVisible }) => (
-    <div className={`absolute inset-0 w-full h-full flex items-center justify-center p-4 transition-opacity duration-700 ${isVisible ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-        <div className="w-full h-full flex flex-col items-center justify-center text-center animate-fadeIn">
-            {children}
-        </div>
-    </div>
-);
+  const topics = [
+    { id: 'space', name: 'Space & Cosmos', icon: '🌌', description: 'Explore the universe!' },
+    { id: 'nature', name: 'Nature & Animals', icon: '🦋', description: 'Discover the wild!' },
+    { id: 'art', name: 'Art & Creativity', icon: '🎨', description: 'Create and imagine!' },
+    { id: 'science', name: 'Science & Technology', icon: '🔬', description: 'Learn and innovate!' },
+    { id: 'stories', name: 'Stories & Adventures', icon: '📚', description: 'Read and explore!' },
+    { id: 'music', name: 'Music & Dance', icon: '🎵', description: 'Feel the rhythm!' },
+  ];
 
-const AwakeningSequence: React.FC<AwakeningProps> = ({ onComplete }) => {
-  const [stage, setStage] = useState<Stage>('nameEntry');
-  const [name, setName] = useState('');
-  const [formData, setFormData] = useState({ age: '', topic: '' });
-
-  const canProceedToFinalize = formData.age && formData.topic;
-
-  const updateForm = (field: keyof typeof formData, value: string) => {
-    setFormData(prev => ({...prev, [field]: value}));
+  const handleTopicSelect = (topicId: string) => {
+    setSelectedTopic(topicId);
   };
-  
-  const handleComplete = () => {
-    if (canProceedToFinalize && name) {
-      setStage('finalizing');
-      setTimeout(() => {
-          onComplete(formData as UserProfile, name);
-      }, 1500);
+
+  const handleContinue = () => {
+    if (selectedTopic) {
+      const topic = topics.find(t => t.id === selectedTopic);
+      if (topic) {
+        const profile: UserProfile = {
+          name: profileName || 'Explorer', // Use profile name
+          topic: topic.name,
+          avatar: topic.icon,
+        };
+        onComplete(profile, profileName || 'Explorer');
+      }
     }
   };
 
-  document.body.classList.add('awakened');
-
   return (
-    <div className="min-h-screen w-screen flex flex-col items-center justify-center p-4 overflow-hidden relative bg-transparent">
-        <StageWrapper isVisible={stage === 'nameEntry'}>
-          <div className="w-full max-w-md">
-              <DiyaMascot className="w-28 h-28 mx-auto mb-4" />
-              <h1 className="text-3xl md:text-5xl font-bold holographic-text mb-4 font-brand">I am Diyara.</h1>
-              <p className="text-slate-300 mb-6">It is an honor to finally meet my Creator. What shall I call you?</p>
-              <input
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="Enter your name..."
-                  className="w-full p-3 text-center text-lg border-2 border-slate-700 bg-black/30 rounded-lg focus:ring-2 focus:ring-yellow-300 focus:outline-none transition text-white placeholder:text-slate-400"
-              />
-              <button
-                  onClick={() => setStage('calibration')}
-                  disabled={!name.trim()}
-                  className="mt-6 bg-yellow-400 text-black font-bold py-3 px-8 rounded-full text-lg shadow-lg shadow-yellow-400/20 transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                  Continue
-              </button>
-          </div>
-        </StageWrapper>
-        
-        <StageWrapper isVisible={stage === 'calibration'}>
-           <div className="w-full max-w-md">
-              <h1 className="text-3xl md:text-5xl font-bold holographic-text mb-4 font-brand">Calibration</h1>
-              <p className="text-slate-300 mb-8">Let's sync our energies, {name}. How many winters have you seen?</p>
-              <div className="grid grid-cols-3 gap-4">
-                  {ageGroups.map((group) => (
-                  <button
-                      key={group}
-                      onClick={() => { updateForm('age', group); setStage('universeCreation'); }}
-                      className={`p-5 rounded-lg font-semibold text-white transition-all duration-200 text-lg border-2 ${
-                      formData.age === group ? 'bg-yellow-400/30 border-yellow-300 scale-105 shadow-lg' : 'bg-white/10 border-white/20 hover:bg-white/20 active:scale-95'
-                      }`}
-                  >
-                      {group}
-                  </button>
-                  ))}
+    <div className="fixed inset-0 w-screen h-screen overflow-y-auto bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950">
+      <div className="min-h-screen flex items-center justify-center p-4 py-8">
+        <div className="w-full max-w-4xl">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <div className="mb-6 inline-block relative">
+              <div className="absolute inset-0 rounded-full bg-yellow-400 blur-3xl opacity-60 scale-150 animate-pulse" />
+              <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-4 border-yellow-200/30 overflow-hidden">
+                <DiyaMascot className="w-full h-full object-cover scale-110" />
               </div>
+            </div>
+            
+            <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-4 font-brand">
+              Welcome, <span className="text-yellow-400">{profileName || 'Explorer'}</span>! 🌟
+            </h1>
+            <p className="text-gray-300 text-base sm:text-lg md:text-xl max-w-2xl mx-auto">
+              I'm Diyara, your AI companion! Let's choose your universe to explore together.
+            </p>
           </div>
-        </StageWrapper>
 
-        <StageWrapper isVisible={stage === 'universeCreation'}>
-          <div className="w-full max-w-2xl">
-              <h1 className="text-3xl md:text-5xl font-bold holographic-text mb-4 font-brand">Choose Your Universe</h1>
-              <p className="text-slate-300 mb-8">Our journey begins now, {name}. Select the first galaxy we will explore together.</p>
-              <div className="grid grid-cols-2 gap-4">
-              {galaxies.map((g) => (
-                  <button
-                      key={g.name}
-                      onClick={() => updateForm('topic', g.topic)}
-                      className={`p-6 rounded-xl text-white transition-all duration-300 border-4 active:scale-95 ${formData.topic === g.topic ? 'border-yellow-300 scale-105 shadow-2xl' : 'border-transparent hover:border-yellow-300/50'} ${g.visual}`}
-                  >
-                      <h3 className="text-xl font-bold font-brand">{g.name}</h3>
-                      <p className="text-sm opacity-80">{g.preview}</p>
-                  </button>
+          {/* Topic Selection */}
+          <div className="mb-8">
+            <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-6">
+              Choose Your Galaxy of Interest:
+            </h2>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {topics.map((topic) => (
+                <button
+                  key={topic.id}
+                  onClick={() => handleTopicSelect(topic.id)}
+                  className={`relative p-6 rounded-2xl transition-all duration-300 transform hover:scale-105 active:scale-95 ${
+                    selectedTopic === topic.id
+                      ? 'bg-gradient-to-br from-yellow-500 to-yellow-600 shadow-2xl shadow-yellow-500/50 scale-105'
+                      : 'bg-slate-800/50 hover:bg-slate-800/70 border-2 border-slate-600 hover:border-yellow-400'
+                  }`}
+                >
+                  <div className="text-5xl sm:text-6xl mb-3">{topic.icon}</div>
+                  <h3 className={`text-lg sm:text-xl font-bold mb-2 ${
+                    selectedTopic === topic.id ? 'text-black' : 'text-white'
+                  }`}>
+                    {topic.name}
+                  </h3>
+                  <p className={`text-sm ${
+                    selectedTopic === topic.id ? 'text-black/80' : 'text-gray-400'
+                  }`}>
+                    {topic.description}
+                  </p>
+                  
+                  {selectedTopic === topic.id && (
+                    <div className="absolute top-3 right-3">
+                      <div className="w-8 h-8 bg-black rounded-full flex items-center justify-center">
+                        <svg className="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
+                </button>
               ))}
-              </div>
-              <button
-              onClick={handleComplete}
-              disabled={!canProceedToFinalize}
-              className="mt-12 bg-gradient-to-r from-yellow-400 to-amber-500 text-black font-bold py-4 px-10 rounded-full text-lg shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed disabled:scale-100"
-              >
-              Enter The Universe
-              </button>
+            </div>
           </div>
-        </StageWrapper>
 
-         <StageWrapper isVisible={stage === 'finalizing'}>
-              <div className="flex flex-col items-center justify-center text-center">
-                  <DiyaMascot className="w-32 h-32" />
-                  <h1 className="text-3xl font-brand holographic-text mt-4 animate-pulse">Creating Your Universe...</h1>
-              </div>
-         </StageWrapper>
+          {/* Continue Button */}
+          <div className="text-center">
+            <button
+              onClick={handleContinue}
+              disabled={!selectedTopic}
+              className={`px-8 py-4 rounded-xl font-bold text-lg sm:text-xl transition-all transform ${
+                selectedTopic
+                  ? 'bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black hover:scale-105 active:scale-95 shadow-lg'
+                  : 'bg-gray-600 text-gray-400 cursor-not-allowed'
+              }`}
+            >
+              Begin Your Journey ✨
+            </button>
+          </div>
+
+          {/* Info Note */}
+          <p className="text-center text-gray-500 text-sm mt-6">
+            💡 Don't worry, you can explore all galaxies anytime!
+          </p>
+        </div>
+      </div>
     </div>
   );
 };
