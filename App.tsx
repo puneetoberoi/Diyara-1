@@ -216,7 +216,7 @@ function getDefaultGreeting(profileName: string, relation: string): string {
   return `Sat Sri Akal, ${relTerms.punjabi}! 🙏 ${relTerms.special} ${randomWisdom}. Chalo, let's begin this beautiful journey together! ✨`;
 }
 
-// Greeting Display Component
+// Greeting Display Component - FUTURISTIC VERSION
 const GreetingScreen: React.FC<{ 
   profile: FamilyProfile;
   greeting: string;
@@ -226,43 +226,87 @@ const GreetingScreen: React.FC<{
 
   return (
     <div className="fixed inset-0 w-screen h-screen overflow-hidden bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center p-4">
-      <div className="relative z-10 w-full max-w-2xl mx-auto flex flex-col items-center text-center">
-        {/* Profile Avatar or Diyara mascot */}
-        <div className="mb-6 relative">
-          <div className="absolute inset-0 rounded-full bg-yellow-400 blur-3xl opacity-60 scale-150 animate-pulse" />
-          <div className={`relative w-32 h-32 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br ${profile.avatarUrl ? profile.color : 'from-yellow-300 via-yellow-400 to-orange-500'} flex items-center justify-center shadow-2xl border-4 border-yellow-200/30 overflow-hidden`}>
+      {/* Animated background particles */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{top: '20%', left: '10%', animationDelay: '0s'}}></div>
+        <div className="absolute w-2 h-2 bg-purple-400 rounded-full animate-ping" style={{top: '60%', left: '80%', animationDelay: '1s'}}></div>
+        <div className="absolute w-2 h-2 bg-blue-400 rounded-full animate-ping" style={{top: '40%', left: '90%', animationDelay: '2s'}}></div>
+        <div className="absolute w-2 h-2 bg-yellow-400 rounded-full animate-ping" style={{top: '80%', left: '20%', animationDelay: '1.5s'}}></div>
+      </div>
+
+      <div className="relative z-10 w-full max-w-3xl mx-auto flex flex-col items-center text-center">
+        {/* Profile Avatar with futuristic glow */}
+        <div className="mb-8 relative">
+          {/* Outer glow ring */}
+          <div className="absolute inset-0 rounded-full bg-gradient-to-r from-yellow-400 via-purple-500 to-blue-500 blur-3xl opacity-60 scale-150 animate-pulse" />
+          
+          {/* Middle ring */}
+          <div className="absolute inset-0 rounded-full border-4 border-yellow-400/30 animate-spin" style={{animationDuration: '10s'}} />
+          
+          {/* Avatar container */}
+          <div className={`relative w-40 h-40 sm:w-48 sm:h-48 rounded-full bg-gradient-to-br ${profile.avatarUrl ? profile.color : 'from-yellow-300 via-yellow-400 to-orange-500'} flex items-center justify-center shadow-2xl border-4 border-yellow-200/50 overflow-hidden`}>
             {profile.avatarUrl ? (
               <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
             ) : (
               <DiyaMascot className="w-full h-full object-cover scale-110" />
             )}
           </div>
+          
+          {/* Inner decorative ring */}
+          <div className="absolute inset-0 rounded-full border-2 border-white/20 animate-pulse" />
         </div>
 
-        {/* Profile name badge */}
-        <div className="mb-4 px-6 py-2 bg-gradient-to-r from-yellow-500 to-yellow-600 rounded-full">
-          <p className="text-black font-bold text-lg sm:text-xl">
-            {relTerms.punjabi}
-          </p>
+        {/* Futuristic name badge */}
+        <div className="mb-6 relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-500 to-yellow-600 blur-lg opacity-50" />
+          <div className="relative px-8 py-3 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 rounded-full border-2 border-yellow-300 shadow-lg">
+            <p className="text-black font-bold text-xl sm:text-2xl tracking-wide">
+              {relTerms.punjabi}
+            </p>
+          </div>
         </div>
 
-        {/* Greeting */}
-        <div className="bg-slate-800/50 backdrop-blur-xl border-2 border-white/20 rounded-2xl p-6 sm:p-8 mb-6 shadow-2xl">
-          <p className="text-white text-lg sm:text-xl md:text-2xl leading-relaxed font-medium">
-            {greeting}
-          </p>
+        {/* Greeting card - futuristic glass morphism */}
+        <div className="relative w-full mb-8">
+          {/* Glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-purple-500 via-blue-500 to-purple-500 rounded-3xl blur-xl opacity-30 animate-pulse" />
+          
+          {/* Main card */}
+          <div className="relative bg-slate-900/40 backdrop-blur-2xl border-2 border-white/20 rounded-3xl p-6 sm:p-8 shadow-2xl">
+            {/* Corner decorations */}
+            <div className="absolute top-0 left-0 w-16 h-16 border-t-4 border-l-4 border-yellow-400 rounded-tl-3xl" />
+            <div className="absolute top-0 right-0 w-16 h-16 border-t-4 border-r-4 border-yellow-400 rounded-tr-3xl" />
+            <div className="absolute bottom-0 left-0 w-16 h-16 border-b-4 border-l-4 border-yellow-400 rounded-bl-3xl" />
+            <div className="absolute bottom-0 right-0 w-16 h-16 border-b-4 border-r-4 border-yellow-400 rounded-br-3xl" />
+            
+            {/* Greeting text */}
+            <p className="text-white text-lg sm:text-xl md:text-2xl leading-relaxed font-medium px-4">
+              {greeting}
+            </p>
+          </div>
         </div>
 
-        {/* Continue button */}
+        {/* Futuristic continue button */}
         <button
           onClick={onContinue}
-          className="px-8 py-4 bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-400 hover:to-yellow-500 text-black font-bold text-lg rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+          className="group relative px-10 py-4 bg-gradient-to-r from-yellow-500 via-yellow-400 to-yellow-500 hover:from-yellow-400 hover:via-yellow-300 hover:to-yellow-400 text-black font-bold text-lg sm:text-xl rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-2xl border-2 border-yellow-300 overflow-hidden"
         >
-          Continue to Setup ✨
+          {/* Button glow effect */}
+          <div className="absolute inset-0 bg-gradient-to-r from-yellow-300 to-yellow-500 opacity-0 group-hover:opacity-100 blur-lg transition-opacity" />
+          
+          {/* Button content */}
+          <span className="relative flex items-center gap-2">
+            Continue to Setup
+            <span className="text-2xl animate-bounce">✨</span>
+          </span>
         </button>
 
-        {/* Fun emoji decoration */}
-        <p className="text-4xl mt-6 animate-bounce">🌟</p>
+        {/* Decorative elements */}
+        <div className="mt-8 flex gap-2 items-center">
+          <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '0s'}} />
+          <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '0.2s'}} />
+          <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" style={{animationDelay: '0.4s'}} />
+        </div>
       </div>
     </div>
   );
