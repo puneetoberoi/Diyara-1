@@ -1,12 +1,22 @@
 // Supabase Client - Database Connection
 import { createClient } from '@supabase/supabase-js';
 
-// Get environment variables
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || process.env.VITE_SUPABASE_URL || '';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || process.env.VITE_SUPABASE_ANON_KEY || '';
+// Get environment variables - try multiple ways
+const supabaseUrl = 
+  import.meta.env?.VITE_SUPABASE_URL || 
+  (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_URL) || 
+  '';
+
+const supabaseAnonKey = 
+  import.meta.env?.VITE_SUPABASE_ANON_KEY || 
+  (typeof process !== 'undefined' && process.env?.VITE_SUPABASE_ANON_KEY) || 
+  '';
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase credentials! Make sure VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY are set.');
+  console.error('Missing Supabase credentials!');
+  console.log('supabaseUrl:', supabaseUrl ? 'SET' : 'MISSING');
+  console.log('supabaseAnonKey:', supabaseAnonKey ? 'SET' : 'MISSING');
+  console.log('import.meta.env:', import.meta.env);
 }
 
 // Create Supabase client
