@@ -25,9 +25,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-pink-500 to-rose-600',
     bio: "Guiding star & wisdom 💖",
     gender: 'female',
-    orbitRadius: 180,
-    orbitSpeed: 60,
-    planetSize: 80
+    orbitRadius: 200,
+    orbitSpeed: 50,
+    planetSize: 90
   },
   { 
     id: 'dad', 
@@ -35,19 +35,19 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-blue-500 to-indigo-600',
     bio: "Protector & strength 💪",
     gender: 'male',
-    orbitRadius: 180,
-    orbitSpeed: 55,
-    planetSize: 85
+    orbitRadius: 200,
+    orbitSpeed: 58,
+    planetSize: 95
   },
   { 
     id: 'daadaji', 
     name: 'Daada Ji',
     color: 'from-amber-500 to-orange-600',
-    bio: "Wise elder, magic of generations 📚",
+    bio: "Wise elder 📚",
     gender: 'male',
-    orbitRadius: 240,
-    orbitSpeed: 70,
-    planetSize: 85
+    orbitRadius: 280,
+    orbitSpeed: 65,
+    planetSize: 95
   },
   { 
     id: 'daadiji', 
@@ -55,9 +55,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-purple-500 to-pink-600',
     bio: "Sweetest blessing 🌸",
     gender: 'female',
-    orbitRadius: 240,
-    orbitSpeed: 75,
-    planetSize: 80
+    orbitRadius: 280,
+    orbitSpeed: 72,
+    planetSize: 90
   },
   { 
     id: 'chachu', 
@@ -65,9 +65,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-teal-500 to-cyan-600',
     bio: "Fun companion 🎉",
     gender: 'male',
-    orbitRadius: 300,
-    orbitSpeed: 80,
-    planetSize: 75
+    orbitRadius: 360,
+    orbitSpeed: 78,
+    planetSize: 85
   },
   { 
     id: 'chachi', 
@@ -75,9 +75,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-green-500 to-emerald-600',
     bio: "Gentle soul 🌺",
     gender: 'female',
-    orbitRadius: 300,
+    orbitRadius: 360,
     orbitSpeed: 85,
-    planetSize: 75
+    planetSize: 85
   },
   { 
     id: 'naniji', 
@@ -85,9 +85,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-yellow-500 to-amber-600',
     bio: "Sunshine guardian ☀️",
     gender: 'female',
-    orbitRadius: 360,
-    orbitSpeed: 90,
-    planetSize: 80
+    orbitRadius: 440,
+    orbitSpeed: 92,
+    planetSize: 90
   },
   { 
     id: 'mamu', 
@@ -95,9 +95,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-indigo-500 to-purple-600',
     bio: "Playful friend 🚀",
     gender: 'male',
-    orbitRadius: 360,
-    orbitSpeed: 95,
-    planetSize: 75
+    orbitRadius: 440,
+    orbitSpeed: 100,
+    planetSize: 85
   },
   { 
     id: 'mami', 
@@ -105,72 +105,111 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-red-500 to-pink-600',
     bio: "Graceful inspiration 🦋",
     gender: 'female',
-    orbitRadius: 420,
-    orbitSpeed: 100,
-    planetSize: 75
+    orbitRadius: 520,
+    orbitSpeed: 108,
+    planetSize: 85
   },
 ];
 
-// Turban SVG Component (Sikh style - orange/saffron)
+// Improved Turban SVG Component (Sikh style - orange/saffron with prominent beard)
 const TurbanAvatar: React.FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-    {/* Face */}
-    <circle cx="50" cy="55" r="30" fill="#F4D03F" />
+  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+    {/* Face - larger and more prominent */}
+    <ellipse cx="60" cy="65" rx="35" ry="38" fill="#F4D03F" />
     
-    {/* Beard */}
+    {/* Turban - Sikh style with visible folds and texture */}
+    <ellipse cx="60" cy="38" rx="40" ry="28" fill="#E67E22" />
+    
+    {/* Turban folds - multiple layers for texture */}
+    <path d="M25 38 Q35 32 60 32 Q85 32 95 38" stroke="#D35400" strokeWidth="4" fill="none" opacity="0.8" />
+    <path d="M22 42 Q33 36 60 36 Q87 36 98 42" stroke="#D35400" strokeWidth="3.5" fill="none" opacity="0.7" />
+    <path d="M20 46 Q31 40 60 40 Q89 40 100 46" stroke="#D35400" strokeWidth="3" fill="none" opacity="0.6" />
+    <path d="M23 50 Q34 44 60 44 Q86 44 97 50" stroke="#D35400" strokeWidth="2.5" fill="none" opacity="0.5" />
+    
+    {/* Top knot (Joora) */}
+    <ellipse cx="60" cy="22" rx="16" ry="11" fill="#E67E22" />
+    <ellipse cx="60" cy="20" rx="12" ry="8" fill="#D35400" opacity="0.7" />
+    <path d="M55 20 Q60 15 65 20" stroke="#BF6516" strokeWidth="2.5" fill="none" />
+    
+    {/* Shadow under turban */}
+    <ellipse cx="60" cy="52" rx="38" ry="6" fill="#000" opacity="0.15" />
+    
+    {/* Eyes - expressive and friendly */}
+    <ellipse cx="48" cy="62" rx="4" ry="5" fill="#2C3E50" />
+    <ellipse cx="72" cy="62" rx="4" ry="5" fill="#2C3E50" />
+    <circle cx="49" cy="61" r="1.5" fill="white" />
+    <circle cx="73" cy="61" r="1.5" fill="white" />
+    
+    {/* Eyebrows - thick and expressive */}
+    <path d="M42 55 Q48 52 54 55" stroke="#2C3E50" strokeWidth="3" strokeLinecap="round" fill="none" />
+    <path d="M66 55 Q72 52 78 55" stroke="#2C3E50" strokeWidth="3" strokeLinecap="round" fill="none" />
+    
+    {/* Nose */}
+    <path d="M60 68 L58 75" stroke="#D4A76A" strokeWidth="2" strokeLinecap="round" />
+    <path d="M60 68 L62 75" stroke="#D4A76A" strokeWidth="2" strokeLinecap="round" />
+    
+    {/* PROMINENT BEARD - Full Sikh style */}
     <path 
-      d="M35 65 Q30 75 35 80 L50 82 L65 80 Q70 75 65 65 Z" 
-      fill="#2C3E50"
+      d="M38 72 Q35 85 40 95 Q45 100 60 102 Q75 100 80 95 Q85 85 82 72 Q78 75 72 78 Q65 80 60 80 Q55 80 48 78 Q42 75 38 72 Z" 
+      fill="#1A252F"
     />
     
-    {/* Turban - Sikh style with folds */}
-    <ellipse cx="50" cy="32" rx="32" ry="22" fill="#E67E22" />
-    {/* Turban folds */}
-    <path d="M25 32 Q30 28 50 28 Q70 28 75 32" stroke="#D35400" strokeWidth="3" fill="none" opacity="0.6" />
-    <path d="M22 35 Q28 31 50 31 Q72 31 78 35" stroke="#D35400" strokeWidth="2.5" fill="none" opacity="0.5" />
-    <path d="M20 38 Q26 34 50 34 Q74 34 80 38" stroke="#D35400" strokeWidth="2" fill="none" opacity="0.4" />
+    {/* Beard texture/highlights */}
+    <path d="M45 80 Q50 83 55 85" stroke="#2C3E50" strokeWidth="1.5" opacity="0.6" fill="none" />
+    <path d="M65 85 Q70 83 75 80" stroke="#2C3E50" strokeWidth="1.5" opacity="0.6" fill="none" />
+    <path d="M48 88 Q55 90 60 90 Q65 90 72 88" stroke="#2C3E50" strokeWidth="1.5" opacity="0.6" fill="none" />
     
-    {/* Top knot style */}
-    <ellipse cx="50" cy="18" rx="12" ry="8" fill="#E67E22" />
-    <path d="M50 15 Q45 12 42 18" stroke="#D35400" strokeWidth="2" fill="none" />
-    <path d="M50 15 Q55 12 58 18" stroke="#D35400" strokeWidth="2" fill="none" />
+    {/* Mustache above beard */}
+    <path d="M48 73 Q54 76 60 76 Q66 76 72 73" stroke="#1A252F" strokeWidth="3" strokeLinecap="round" />
     
-    {/* Eyes */}
-    <circle cx="42" cy="52" r="3" fill="#2C3E50" />
-    <circle cx="58" cy="52" r="3" fill="#2C3E50" />
-    
-    {/* Eyebrows */}
-    <path d="M37 47 Q42 45 47 47" stroke="#2C3E50" strokeWidth="2" fill="none" />
-    <path d="M53 47 Q58 45 63 47" stroke="#2C3E50" strokeWidth="2" fill="none" />
-    
-    {/* Mouth */}
-    <path d="M42 62 Q50 65 58 62" stroke="#2C3E50" strokeWidth="2" fill="none" />
+    {/* Smile visible through mustache */}
+    <path d="M52 77 Q60 80 68 77" stroke="#C85A54" strokeWidth="1.5" fill="none" opacity="0.7" />
   </svg>
 );
 
-// Female Avatar SVG
+// Improved Female Avatar SVG
 const FemaleAvatar: React.FC<{ size: number }> = ({ size }) => (
-  <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
+  <svg width={size} height={size} viewBox="0 0 120 120" fill="none">
+    {/* Hair background */}
+    <ellipse cx="60" cy="45" rx="42" ry="48" fill="#6F4E37" />
+    
+    {/* Hair parting */}
+    <path d="M60 10 Q58 30 55 45" stroke="#5A3A2A" strokeWidth="2" opacity="0.8" />
+    <path d="M60 10 Q62 30 65 45" stroke="#5A3A2A" strokeWidth="2" opacity="0.8" />
+    
+    {/* Hair sides */}
+    <ellipse cx="30" cy="60" rx="15" ry="35" fill="#6F4E37" />
+    <ellipse cx="90" cy="60" rx="15" ry="35" fill="#6F4E37" />
+    
     {/* Face */}
-    <circle cx="50" cy="50" r="30" fill="#F4D03F" />
+    <ellipse cx="60" cy="60" rx="32" ry="36" fill="#F4D03F" />
     
-    {/* Hair */}
-    <path d="M20 45 Q20 20 50 20 Q80 20 80 45" fill="#8B4513" />
-    <ellipse cx="50" cy="25" rx="30" ry="20" fill="#8B4513" />
-    
-    {/* Eyes */}
-    <circle cx="42" cy="48" r="3" fill="#2C3E50" />
-    <circle cx="58" cy="48" r="3" fill="#2C3E50" />
+    {/* Eyes - expressive */}
+    <ellipse cx="50" cy="56" rx="4" ry="5" fill="#2C3E50" />
+    <ellipse cx="70" cy="56" rx="4" ry="5" fill="#2C3E50" />
+    <circle cx="51" cy="55" r="1.5" fill="white" />
+    <circle cx="71" cy="55" r="1.5" fill="white" />
     
     {/* Eyebrows */}
-    <path d="M37 43 Q42 41 47 43" stroke="#6F4E37" strokeWidth="2" fill="none" />
-    <path d="M53 43 Q58 41 63 43" stroke="#6F4E37" strokeWidth="2" fill="none" />
+    <path d="M43 49 Q50 46 57 49" stroke="#6F4E37" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+    <path d="M63 49 Q70 46 77 49" stroke="#6F4E37" strokeWidth="2.5" strokeLinecap="round" fill="none" />
     
-    {/* Smile */}
-    <path d="M40 58 Q50 63 60 58" stroke="#E74C3C" strokeWidth="2" fill="none" />
+    {/* Nose */}
+    <path d="M60 62 L58 68" stroke="#D4A76A" strokeWidth="2" strokeLinecap="round" />
+    <path d="M60 62 L62 68" stroke="#D4A76A" strokeWidth="2" strokeLinecap="round" />
     
-    {/* Bindi (optional) */}
-    <circle cx="50" cy="40" r="2" fill="#E74C3C" />
+    {/* Warm smile */}
+    <path d="M48 72 Q60 78 72 72" stroke="#C85A54" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+    
+    {/* Bindi */}
+    <circle cx="60" cy="45" r="2.5" fill="#E74C3C" />
+    
+    {/* Earrings */}
+    <circle cx="28" cy="65" r="4" fill="#FFD700" opacity="0.9" />
+    <circle cx="92" cy="65" r="4" fill="#FFD700" opacity="0.9" />
+    
+    {/* Necklace hint */}
+    <ellipse cx="60" cy="95" rx="25" ry="3" fill="#FFD700" opacity="0.7" />
   </svg>
 );
 
@@ -308,20 +347,25 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                         className={`relative group transition-all duration-300 ${
                           isHovered || isSelected ? 'scale-125 z-30' : 'scale-100 z-10'
                         }`}
+                        style={{
+                          padding: '20px', // Bigger click area
+                          margin: '-20px', // Offset the padding
+                        }}
                       >
                         {/* Planet glow */}
-                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-xl opacity-60 scale-150 ${isHovered ? 'animate-pulse' : ''}`} />
+                        <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-2xl opacity-70 scale-[2] ${isHovered ? 'animate-pulse' : ''}`} 
+                             style={{ pointerEvents: 'none' }} />
                         
                         {/* Planet surface with avatar */}
                         <div
-                          className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-4 border-white/40 shadow-2xl overflow-hidden`}
+                          className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-4 border-white/50 shadow-2xl overflow-hidden transition-all duration-300 ${isHovered ? 'border-white' : ''}`}
                           style={{
                             width: `${profile.planetSize}px`,
                             height: `${profile.planetSize}px`,
                           }}
                         >
                           {/* Avatar */}
-                          <div className="w-full h-full flex items-center justify-center">
+                          <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-white/10 to-transparent">
                             {profile.gender === 'male' ? (
                               <TurbanAvatar size={profile.planetSize} />
                             ) : (
@@ -330,11 +374,11 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                           </div>
                         </div>
 
-                        {/* Planet info on hover */}
+                        {/* Planet info - ALWAYS show on hover with better positioning */}
                         {isHovered && (
-                          <div className="absolute -bottom-24 left-1/2 -translate-x-1/2 bg-black/90 backdrop-blur-md px-4 py-3 rounded-xl border border-white/30 whitespace-nowrap animate-fadeIn z-50 shadow-2xl">
-                            <p className="text-white font-bold text-sm mb-1">{profile.name}</p>
-                            <p className="text-gray-300 text-xs">{profile.bio}</p>
+                          <div className="fixed top-8 left-1/2 -translate-x-1/2 bg-black/95 backdrop-blur-xl px-6 py-4 rounded-2xl border-2 border-white/40 whitespace-nowrap animate-fadeIn z-[100] shadow-2xl">
+                            <p className="text-white font-bold text-lg mb-1">{profile.name}</p>
+                            <p className="text-gray-300 text-sm">{profile.bio}</p>
                           </div>
                         )}
                       </button>
