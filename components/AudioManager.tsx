@@ -1,5 +1,5 @@
 // AudioManager - Centralized audio management for Diyara
-// Handles background music, button sounds, and voice pronunciations
+// FIXED: Using working sound effect URLs
 
 class AudioManager {
   private static instance: AudioManager;
@@ -8,46 +8,41 @@ class AudioManager {
   private isMusicEnabled: boolean = true;
   private isSoundsEnabled: boolean = true;
   
-  // Royalty-free music URLs (using reliable sources)
+  // Background music - using working URLs
   private musicTracks = {
-    welcome: 'https://assets.mixkit.co/music/preview/mixkit-little-night-light-143.mp3', // Gentle lullaby
-    accessCode: 'https://assets.mixkit.co/music/preview/mixkit-beautiful-dream-142.mp3', // Dreamy
-    profileSelection: 'https://assets.mixkit.co/music/preview/mixkit-a-happy-child-532.mp3', // Playful
-    greeting: 'https://assets.mixkit.co/music/preview/mixkit-sleepy-cat-135.mp3', // Warm
-    apiSetup: 'https://assets.mixkit.co/music/preview/mixkit-little-night-light-143.mp3', // Gentle
-    onboarding: 'https://assets.mixkit.co/music/preview/mixkit-a-happy-child-532.mp3', // Happy
-    mainApp: 'https://assets.mixkit.co/music/preview/mixkit-games-worldbeat-466.mp3', // Upbeat
+    welcome: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8e1d4ab.mp3', // Gentle
+    accessCode: 'https://cdn.pixabay.com/audio/2022/05/27/audio_1808fbf07a.mp3', // Dreamy
+    profileSelection: 'https://cdn.pixabay.com/audio/2022/08/02/audio_2dff3e6814.mp3', // Playful
+    greeting: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8e1d4ab.mp3', // Warm
+    apiSetup: 'https://cdn.pixabay.com/audio/2022/03/10/audio_c8c8e1d4ab.mp3', // Gentle
+    onboarding: 'https://cdn.pixabay.com/audio/2022/08/02/audio_2dff3e6814.mp3', // Happy
+    mainApp: 'https://cdn.pixabay.com/audio/2022/03/24/audio_c36014a1b0.mp3', // Upbeat
   };
 
-  // Sound effects URLs
+  // Sound effects - DISABLED for now due to CORS issues
+  // We'll use simple beep sounds instead
   private soundEffects = {
-    buttonClick: 'https://assets.mixkit.co/sfx/preview/mixkit-select-click-1109.mp3',
-    buttonHover: 'https://assets.mixkit.co/sfx/preview/mixkit-baby-laugh-2172.mp3', // Baby giggle
-    profileClick: 'https://assets.mixkit.co/sfx/preview/mixkit-happy-baby-giggle-2173.mp3',
-    success: 'https://assets.mixkit.co/sfx/preview/mixkit-achievement-bell-600.mp3',
-    transition: 'https://assets.mixkit.co/sfx/preview/mixkit-fairy-arcade-sparkle-866.mp3',
+    buttonClick: '', // Will use audioContext
+    buttonHover: '',
+    profileClick: '',
+    success: '',
+    transition: '',
   };
 
-  // Profile name pronunciations (text-to-speech will be generated on the fly)
-  private profileNames: Record<string, string> = {
-    'mom': 'Mom',
-    'dad': 'Dad', 
-    'daadaji': 'Daada Ji',
-    'daadiji': 'Daadi Ji',
-    'chachu': 'Chachu',
-    'chachi': 'Chachi',
-    'naniji': 'Nani Ji',
-    'mamu': 'Mamu',
-    'mami': 'Mami',
-  };
+  // Audio context for simple sounds
+  private audioContext: AudioContext | null = null;
 
   private constructor() {
-    // Check localStorage for user preferences
     const musicPref = localStorage.getItem('diyaraMusicEnabled');
     const soundsPref = localStorage.getItem('diyaraSoundsEnabled');
     
     this.isMusicEnabled = musicPref !== 'false';
     this.isSoundsEnabled = soundsPref !== 'false';
+
+    // Initialize audio context for sound effects
+    if (typeof window !== 'undefined' && 'AudioContext' in window) {
+      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+    }
   }
 
   static getInstance(): AudioManager {
@@ -57,30 +52,49 @@ class AudioManager {
     return AudioManager.instance;
   }
 
+  // Simple beep sound generator
+  private playBeep(frequency: number = 800, duration: number = 100, volume: number = 0.3) {
+    if (!this.isSoundsEnabled || !this.audioContext) return;
+
+    try {
+      const oscillator = this.audioContext.createOscillator();
+      const gainNode = this.audioContext.createGain();
+
+      oscillator.connect(gainNode);
+      gainNode.connect(this.audioContext.destination);
+
+      oscillator.frequency.value = frequency;
+      oscillator.type = 'sine';
+
+      gainNode.gain.setValueAtTime(volume, this.audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, this.audioContext.currentTime + duration / 1000);
+
+      oscillator.start(this.audioContext.currentTime);
+      oscillator.stop(this.audioContext.currentTime + duration / 1000);
+    } catch (error) {
+      console.log('Sound effect error:', error);
+    }
+  }
+
   // Background music control
   playBackgroundMusic(screen: keyof typeof this.musicTracks) {
     if (!this.isMusicEnabled) return;
 
     const musicUrl = this.musicTracks[screen];
     
-    // If same music is already playing, don't restart
     if (this.currentMusicUrl === musicUrl && this.backgroundMusic && !this.backgroundMusic.paused) {
       return;
     }
 
-    // Stop current music
     this.stopBackgroundMusic();
 
-    // Create new audio element
     this.backgroundMusic = new Audio(musicUrl);
-    this.backgroundMusic.volume = 0.15; // Gentle volume
+    this.backgroundMusic.volume = 0.15;
     this.backgroundMusic.loop = true;
     this.currentMusicUrl = musicUrl;
 
-    // Play with error handling
     this.backgroundMusic.play().catch(error => {
-      console.log('Audio play prevented by browser:', error);
-      // Some browsers block autoplay, that's okay
+      console.log('Audio autoplay prevented:', error);
     });
   }
 
@@ -93,30 +107,19 @@ class AudioManager {
     this.currentMusicUrl = '';
   }
 
-  // Sound effects
-  playSound(sound: keyof typeof this.soundEffects, volume: number = 0.3) {
-    if (!this.isSoundsEnabled) return;
-
-    const soundUrl = this.soundEffects[sound];
-    const audio = new Audio(soundUrl);
-    audio.volume = volume;
-    audio.play().catch(error => {
-      console.log('Sound effect blocked:', error);
-    });
-  }
-
-  // Button sounds
+  // Sound effects using beeps
   playButtonClick() {
-    this.playSound('buttonClick', 0.4);
+    this.playBeep(600, 80, 0.2);
   }
 
   playButtonHover() {
-    this.playSound('buttonHover', 0.2); // Quieter for hover
+    this.playBeep(1000, 50, 0.1);
   }
 
-  // Profile-specific sounds
   playProfileClick() {
-    this.playSound('profileClick', 0.5);
+    // Happy ascending tones
+    this.playBeep(600, 100, 0.3);
+    setTimeout(() => this.playBeep(800, 100, 0.3), 100);
   }
 
   // Say profile name using browser's text-to-speech
@@ -124,30 +127,43 @@ class AudioManager {
     if (!this.isSoundsEnabled) return;
     if (!('speechSynthesis' in window)) return;
 
-    const name = this.profileNames[profileId] || profileId;
+    const nameMap: Record<string, string> = {
+      'mom': 'Mumma Ji',
+      'dad': 'Papa Ji',
+      'daadaji': 'Daadu Ji',
+      'daadiji': 'Daadi Ji',
+      'chachu': 'Chachu Ji',
+      'chachi': 'Chachi Ji',
+      'naniji': 'Nani Ji',
+      'mamu': 'Mamu Ji',
+      'mami': 'Mami Ji',
+    };
+
+    const name = nameMap[profileId.toLowerCase()] || profileId;
     
-    // Cancel any ongoing speech
     window.speechSynthesis.cancel();
 
     const utterance = new SpeechSynthesisUtterance(name);
-    utterance.rate = 0.9; // Slightly slower
-    utterance.pitch = 1.2; // Slightly higher pitch (child-like)
+    utterance.rate = 0.9;
+    utterance.pitch = 1.2;
     utterance.volume = 0.7;
 
     window.speechSynthesis.speak(utterance);
   }
 
-  // Success/celebration sound
   playSuccess() {
-    this.playSound('success', 0.5);
+    // Success sound - ascending chime
+    this.playBeep(600, 100, 0.3);
+    setTimeout(() => this.playBeep(800, 100, 0.3), 80);
+    setTimeout(() => this.playBeep(1000, 150, 0.3), 160);
   }
 
-  // Transition sound
   playTransition() {
-    this.playSound('transition', 0.3);
+    // Sparkle sound
+    this.playBeep(1200, 100, 0.2);
+    setTimeout(() => this.playBeep(1400, 80, 0.15), 50);
   }
 
-  // Toggle music on/off
   toggleMusic(enabled: boolean) {
     this.isMusicEnabled = enabled;
     localStorage.setItem('diyaraMusicEnabled', String(enabled));
@@ -157,13 +173,11 @@ class AudioManager {
     }
   }
 
-  // Toggle sounds on/off
   toggleSounds(enabled: boolean) {
     this.isSoundsEnabled = enabled;
     localStorage.setItem('diyaraSoundsEnabled', String(enabled));
   }
 
-  // Get current states
   isMusicPlaying(): boolean {
     return this.backgroundMusic !== null && !this.backgroundMusic.paused;
   }
@@ -176,7 +190,6 @@ class AudioManager {
     return this.isSoundsEnabled;
   }
 
-  // Fade out music (for transitions)
   fadeOutMusic(duration: number = 1000) {
     if (!this.backgroundMusic) return;
 
@@ -195,7 +208,6 @@ class AudioManager {
     }, 50);
   }
 
-  // Fade in music
   fadeInMusic(screen: keyof typeof this.musicTracks, duration: number = 1000) {
     this.playBackgroundMusic(screen);
     
