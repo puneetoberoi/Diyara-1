@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useAudio } from '../utils/AudioManager';
+import { useAudio } from './AudioManager';
 
 interface HeaderProps {
   userName: string;
