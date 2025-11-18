@@ -618,12 +618,10 @@ const MainApp: React.FC = () => {
 
   return (
     <>
-      <div className="h-screen w-screen flex flex-col">
+      <div className="h-screen w-screen flex flex-col overflow-hidden">
         <Header 
           userName={selectedProfile.name} 
           onOpenSettings={() => setIsSettingsOpen(true)}
-          isMusicPlaying={isMusicPlaying}
-          onToggleMusic={toggleMusic}
         />
         <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
           {renderFeature()}
