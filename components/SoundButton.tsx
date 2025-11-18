@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAudio } from '../utils/AudioManager';
+import { useAudio } from './AudioManager';
 
 interface SoundButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   children: React.ReactNode;
