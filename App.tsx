@@ -1,4 +1,3 @@
-import './index.css';
 import React, { useState, useEffect, useRef } from 'react';
 import { FeatureTab, ChatMessage, UserProfile, GeneratedImage, MissionState, AudioEntry, User, Toast } from './types';
 import DiyaMascot from './components/DiyaMascot';
