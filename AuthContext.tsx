@@ -21,10 +21,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    console.log('[AuthProvider] Starting auth check...');
+    
     // Check active session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      console.log('[AuthProvider] getSession result:', { session: !!session, error });
+      
+      if (error) {
+        console.error('[AuthProvider] Error getting session:', error);
+      }
+      
       setSession(session);
       setUser(session?.user ?? null);
+      setLoading(false);
+      
+      console.log('[AuthProvider] Auth initialized. User:', session?.user?.email || 'Not logged in');
+    }).catch((err) => {
+      console.error('[AuthProvider] Exception in getSession:', err);
       setLoading(false);
     });
 
@@ -32,12 +45,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      console.log('[AuthProvider] Auth state changed:', _event, session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      console.log('[AuthProvider] Cleaning up auth subscription');
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signUp = async (email: string, password: string) => {
