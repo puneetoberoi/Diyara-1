@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
 
 export interface FamilyProfile {
@@ -25,9 +25,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-pink-500 to-rose-600',
     bio: "Guiding star & wisdom 💖",
     gender: 'female',
-    orbitRadius: 180,
+    orbitRadius: 140,
     orbitSpeed: 50,
-    planetSize: 70
+    planetSize: 60
   },
   { 
     id: 'dad', 
@@ -35,9 +35,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-blue-500 to-indigo-600',
     bio: "Protector & strength 💪",
     gender: 'male',
-    orbitRadius: 180,
+    orbitRadius: 140,
     orbitSpeed: 58,
-    planetSize: 75
+    planetSize: 62
   },
   { 
     id: 'daadaji', 
@@ -45,9 +45,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-amber-500 to-orange-600',
     bio: "Wise elder 📚",
     gender: 'male',
-    orbitRadius: 250,
+    orbitRadius: 190,
     orbitSpeed: 65,
-    planetSize: 72
+    planetSize: 60
   },
   { 
     id: 'daadiji', 
@@ -55,9 +55,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-purple-500 to-pink-600',
     bio: "Sweetest blessing 🌸",
     gender: 'female',
-    orbitRadius: 250,
+    orbitRadius: 190,
     orbitSpeed: 72,
-    planetSize: 70
+    planetSize: 58
   },
   { 
     id: 'chachu', 
@@ -65,9 +65,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-teal-500 to-cyan-600',
     bio: "Fun companion 🎉",
     gender: 'male',
-    orbitRadius: 320,
+    orbitRadius: 240,
     orbitSpeed: 78,
-    planetSize: 68
+    planetSize: 56
   },
   { 
     id: 'chachi', 
@@ -75,9 +75,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-green-500 to-emerald-600',
     bio: "Gentle soul 🌺",
     gender: 'female',
-    orbitRadius: 320,
+    orbitRadius: 240,
     orbitSpeed: 85,
-    planetSize: 68
+    planetSize: 56
   },
   { 
     id: 'naniji', 
@@ -85,9 +85,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-yellow-500 to-amber-600',
     bio: "Sunshine guardian ☀️",
     gender: 'female',
-    orbitRadius: 390,
+    orbitRadius: 290,
     orbitSpeed: 92,
-    planetSize: 70
+    planetSize: 58
   },
   { 
     id: 'mamu', 
@@ -95,9 +95,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-indigo-500 to-purple-600',
     bio: "Playful friend 🚀",
     gender: 'male',
-    orbitRadius: 390,
+    orbitRadius: 290,
     orbitSpeed: 100,
-    planetSize: 68
+    planetSize: 56
   },
   { 
     id: 'mami', 
@@ -105,9 +105,9 @@ const defaultProfiles: FamilyProfile[] = [
     color: 'from-red-500 to-pink-600',
     bio: "Graceful inspiration 🦋",
     gender: 'female',
-    orbitRadius: 460,
+    orbitRadius: 340,
     orbitSpeed: 108,
-    planetSize: 68
+    planetSize: 56
   },
 ];
 
@@ -127,7 +127,7 @@ const SimpleAvatar: React.FC<{ profile: FamilyProfile }> = ({ profile }) => {
   const emoji = avatarEmojis[profile.id] || (profile.gender === 'male' ? '👨' : '👩');
 
   return (
-    <div className="w-full h-full flex items-center justify-center text-6xl md:text-7xl bg-gradient-to-br from-white/10 to-transparent">
+    <div className="w-full h-full flex items-center justify-center text-5xl md:text-6xl bg-gradient-to-br from-white/10 to-transparent">
       {emoji}
     </div>
   );
@@ -271,6 +271,38 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   const [hoveredProfile, setHoveredProfile] = useState<string | null>(null);
   const [editingProfile, setEditingProfile] = useState<FamilyProfile | null>(null);
   const [showPhotoModal, setShowPhotoModal] = useState(false);
+  const [scale, setScale] = useState(1);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Calculate scale to fit all planets in viewport
+  useEffect(() => {
+    const calculateScale = () => {
+      if (!containerRef.current) return;
+      
+      const container = containerRef.current;
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
+      
+      // Maximum orbit radius from profiles
+      const maxRadius = Math.max(...profiles.map(p => p.orbitRadius));
+      const maxPlanetSize = Math.max(...profiles.map(p => p.planetSize));
+      
+      // Total space needed (diameter + planet size + padding)
+      const neededSpace = (maxRadius * 2) + maxPlanetSize + 100; // 100px padding
+      const sunSize = 140; // Approximate sun size
+      
+      // Calculate scale to fit
+      const scaleWidth = (containerWidth - 100) / neededSpace;
+      const scaleHeight = (containerHeight - 200) / neededSpace; // More space for header/footer
+      
+      const newScale = Math.min(scaleWidth, scaleHeight, 1.2); // Max 1.2x scale
+      setScale(Math.max(newScale, 0.4)); // Min 0.4x scale
+    };
+
+    calculateScale();
+    window.addEventListener('resize', calculateScale);
+    return () => window.removeEventListener('resize', calculateScale);
+  }, [profiles]);
 
   const saveProfiles = (updatedProfiles: FamilyProfile[]) => {
     setProfiles(updatedProfiles);
@@ -298,25 +330,18 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
 
   const useLongPress = (profile: FamilyProfile) => {
     let timerId: NodeJS.Timeout | null = null;
-    let touchEvent: React.TouchEvent | null = null;
 
     return {
       onTouchStart: (e: React.TouchEvent) => {
-        touchEvent = e;
         timerId = setTimeout(() => {
           handleProfileLongPress(profile, e);
         }, 500);
       },
       onTouchEnd: () => {
-        if (timerId) {
-          clearTimeout(timerId);
-        }
-        touchEvent = null;
+        if (timerId) clearTimeout(timerId);
       },
       onTouchMove: () => {
-        if (timerId) {
-          clearTimeout(timerId);
-        }
+        if (timerId) clearTimeout(timerId);
       },
       onContextMenu: (e: React.MouseEvent) => {
         e.preventDefault();
@@ -326,7 +351,7 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   };
 
   return (
-    <div className="min-h-screen max-h-screen overflow-hidden w-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 relative flex items-center justify-center">
+    <div className="min-h-screen max-h-screen overflow-hidden w-screen bg-gradient-to-br from-indigo-950 via-purple-950 to-slate-950 relative">
       {/* Stars */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {[...Array(150)].map((_, i) => (
@@ -346,8 +371,8 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
       </div>
 
       {/* Title */}
-      <div className="absolute top-4 md:top-8 left-0 right-0 text-center z-10 px-4">
-        <h1 className="text-xl md:text-3xl lg:text-4xl font-bold font-brand text-white mb-1">
+      <div className="absolute top-2 md:top-4 left-0 right-0 text-center z-10 px-4">
+        <h1 className="text-lg md:text-2xl lg:text-3xl font-bold font-brand text-white mb-0.5">
           The Orbiting Planets
         </h1>
         <p className="text-xs md:text-sm text-gray-400">
@@ -356,63 +381,77 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
       </div>
 
       {/* Instructions */}
-      <div className="absolute bottom-4 left-0 right-0 text-center z-10 px-4">
-        <p className="text-white text-sm md:text-base bg-black/50 backdrop-blur-sm px-4 py-2 rounded-full inline-block border border-white/20">
+      <div className="absolute bottom-2 md:bottom-4 left-0 right-0 text-center z-10 px-4">
+        <p className="text-white text-xs md:text-sm bg-black/50 backdrop-blur-sm px-3 py-1.5 md:px-4 md:py-2 rounded-full inline-block border border-white/20">
           ✨ Click to select • Long press to add photo ✨
         </p>
       </div>
 
-      {/* Solar System */}
-      <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
-        {/* Sun - Diyara */}
-        <div className="relative z-20">
-          <div className="absolute inset-0 rounded-full bg-yellow-400 blur-[60px] md:blur-[80px] opacity-50 scale-[2]" />
-          <div className="absolute inset-0 rounded-full bg-orange-400 blur-[40px] md:blur-[60px] opacity-40 animate-pulse scale-[1.5]" />
-          
-          <div className="relative w-28 h-28 md:w-40 md:h-40 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-yellow-200/30 overflow-hidden">
-            <DiyaMascot className="w-full h-full object-cover scale-110" />
+      {/* Solar System Container */}
+      <div 
+        ref={containerRef}
+        className="absolute inset-0 flex items-center justify-center"
+        style={{ 
+          paddingTop: '60px',
+          paddingBottom: '60px'
+        }}
+      >
+        <div 
+          className="relative"
+          style={{ 
+            transform: `scale(${scale})`,
+            transition: 'transform 0.3s ease-out'
+          }}
+        >
+          {/* Sun - Diyara */}
+          <div className="relative z-20">
+            <div className="absolute inset-0 rounded-full bg-yellow-400 blur-[50px] opacity-40 scale-[2]" />
+            <div className="absolute inset-0 rounded-full bg-orange-400 blur-[30px] opacity-30 animate-pulse scale-[1.5]" />
+            
+            <div className="relative w-32 h-32 md:w-36 md:h-36 rounded-full bg-gradient-to-br from-yellow-300 via-yellow-400 to-orange-500 flex items-center justify-center shadow-2xl border-2 border-yellow-200/30 overflow-hidden">
+              <DiyaMascot className="w-full h-full object-cover scale-110" />
+            </div>
+
+            <div className="absolute -bottom-8 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
+              <p className="text-white font-bold text-sm md:text-lg font-brand drop-shadow-lg">Diyara</p>
+              <p className="text-yellow-400 text-xs">The Sun ☀️</p>
+            </div>
           </div>
 
-          <div className="absolute -bottom-10 md:-bottom-12 left-1/2 -translate-x-1/2 text-center whitespace-nowrap">
-            <p className="text-white font-bold text-sm md:text-xl font-brand drop-shadow-lg">Diyara</p>
-            <p className="text-yellow-400 text-xs md:text-sm">The Sun ☀️</p>
-          </div>
-        </div>
+          {/* Orbiting Planets */}
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+            {profiles.map((profile, index) => {
+              const angle = (index / profiles.length) * 2 * Math.PI;
+              const x = Math.cos(angle) * profile.orbitRadius;
+              const y = Math.sin(angle) * profile.orbitRadius;
+              const isHovered = hoveredProfile === profile.id;
 
-        {/* Orbiting Planets - ALL SELECTABLE */}
-        <div className="absolute inset-0 flex items-center justify-center">
-          {profiles.map((profile, index) => {
-            const angle = (index / profiles.length) * 2 * Math.PI;
-            const scaleFactor = typeof window !== 'undefined' && window.innerWidth < 768 ? 0.55 : 0.85;
-            const x = Math.cos(angle) * profile.orbitRadius * scaleFactor;
-            const y = Math.sin(angle) * profile.orbitRadius * scaleFactor;
-            const isHovered = hoveredProfile === profile.id;
-            const planetSize = typeof window !== 'undefined' && window.innerWidth < 768 ? profile.planetSize * 0.7 : profile.planetSize;
+              const longPressHandlers = useLongPress(profile);
 
-            const longPressHandlers = useLongPress(profile);
-
-            return (
-              <React.Fragment key={profile.id}>
-                {/* Orbit ring - VISIBLE */}
-                <div
-                  className="absolute top-1/2 left-1/2 rounded-full border border-white/10 pointer-events-none"
-                  style={{
-                    width: `${profile.orbitRadius * 2 * scaleFactor}px`,
-                    height: `${profile.orbitRadius * 2 * scaleFactor}px`,
-                    transform: 'translate(-50%, -50%)',
-                  }}
-                />
-
-                {/* Planet */}
-                <div className="absolute top-1/2 left-1/2 pointer-events-none" style={{ transform: `translate(-50%, -50%)` }}>
+              return (
+                <React.Fragment key={profile.id}>
+                  {/* Orbit ring */}
                   <div
-                    className="absolute pointer-events-none"
+                    className="absolute top-0 left-0 rounded-full border border-white/10 pointer-events-none"
+                    style={{
+                      width: `${profile.orbitRadius * 2}px`,
+                      height: `${profile.orbitRadius * 2}px`,
+                      transform: 'translate(-50%, -50%)',
+                    }}
+                  />
+
+                  {/* Planet */}
+                  <div 
+                    className="absolute top-0 left-0 pointer-events-none"
                     style={{
                       animation: `orbit-${profile.id} ${profile.orbitSpeed}s linear infinite`,
                       transformOrigin: '0 0',
                     }}
                   >
-                    <div style={{ transform: `translate(${x}px, ${y}px)` }} className="pointer-events-auto">
+                    <div 
+                      style={{ transform: `translate(${x}px, ${y}px)` }} 
+                      className="pointer-events-auto"
+                    >
                       <div className="flex flex-col items-center gap-1">
                         <button
                           onClick={() => handleProfileClick(profile)}
@@ -420,15 +459,18 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
                           onMouseEnter={() => setHoveredProfile(profile.id)}
                           onMouseLeave={() => setHoveredProfile(null)}
                           className={`relative group transition-all duration-300 cursor-pointer ${isHovered ? 'scale-110 z-50' : 'scale-100 z-30'}`}
-                          style={{ padding: '15px', margin: '-15px' }}
+                          style={{ padding: '10px', margin: '-10px' }}
                         >
-                          {/* Glow effect - NO BLUR on planet itself */}
-                          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-lg opacity-60 scale-150 pointer-events-none ${isHovered ? 'animate-pulse' : ''}`} />
+                          {/* Glow effect */}
+                          <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${profile.color} blur-md opacity-50 scale-125 pointer-events-none ${isHovered ? 'animate-pulse opacity-70' : ''}`} />
                           
-                          {/* Planet - CRISP AND CLEAR */}
+                          {/* Planet */}
                           <div
-                            className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-3 md:border-4 border-white/50 shadow-2xl overflow-hidden transition-all duration-300 ${isHovered ? 'border-white shadow-white/50' : ''}`}
-                            style={{ width: `${planetSize}px`, height: `${planetSize}px` }}
+                            className={`relative rounded-full bg-gradient-to-br ${profile.color} flex items-center justify-center border-2 md:border-3 border-white/50 shadow-xl overflow-hidden transition-all duration-300 ${isHovered ? 'border-white shadow-white/30' : ''}`}
+                            style={{ 
+                              width: `${profile.planetSize}px`, 
+                              height: `${profile.planetSize}px` 
+                            }}
                           >
                             {profile.avatarUrl ? (
                               <img src={profile.avatarUrl} alt={profile.name} className="w-full h-full object-cover" />
@@ -439,34 +481,34 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
 
                           {/* Hover tooltip */}
                           {isHovered && (
-                            <div className="fixed top-20 md:top-24 left-1/2 -translate-x-1/2 bg-black/95 backdrop-blur-xl px-4 md:px-6 py-3 md:py-4 rounded-xl md:rounded-2xl border-2 border-white/40 whitespace-nowrap animate-fadeIn z-[100] shadow-2xl max-w-[90vw]">
-                              <p className="text-white font-bold text-sm md:text-lg mb-1">{profile.name}</p>
-                              <p className="text-gray-300 text-xs md:text-sm">{profile.bio}</p>
-                              <p className="text-yellow-400 text-xs mt-1">👆 Click to select • Long press for photo</p>
+                            <div className="fixed top-16 md:top-20 left-1/2 -translate-x-1/2 bg-black/95 backdrop-blur-xl px-3 md:px-5 py-2 md:py-3 rounded-xl border-2 border-white/40 whitespace-nowrap animate-fadeIn z-[100] shadow-2xl max-w-[90vw]">
+                              <p className="text-white font-bold text-xs md:text-base mb-0.5">{profile.name}</p>
+                              <p className="text-gray-300 text-xs">{profile.bio}</p>
+                              <p className="text-yellow-400 text-xs mt-0.5">👆 Tap • Long press for photo</p>
                             </div>
                           )}
                         </button>
                         
                         {/* Name label */}
-                        <div className="text-center bg-black/70 backdrop-blur-sm px-2 py-1 rounded-full border border-white/20 pointer-events-none">
-                          <p className="text-white text-xs md:text-sm font-semibold whitespace-nowrap">
+                        <div className="text-center bg-black/60 backdrop-blur-sm px-2 py-0.5 rounded-full border border-white/20 pointer-events-none">
+                          <p className="text-white text-xs font-semibold whitespace-nowrap">
                             {profile.name}
                           </p>
                         </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                <style key={`orbit-style-${profile.id}`}>{`
-                  @keyframes orbit-${profile.id} {
-                    from { transform: rotate(0deg); }
-                    to { transform: rotate(360deg); }
-                  }
-                `}</style>
-              </React.Fragment>
-            );
-          })}
+                  <style key={`orbit-style-${profile.id}`}>{`
+                    @keyframes orbit-${profile.id} {
+                      from { transform: rotate(0deg); }
+                      to { transform: rotate(360deg); }
+                    }
+                  `}</style>
+                </React.Fragment>
+              );
+            })}
+          </div>
         </div>
       </div>
 
