@@ -1,5 +1,5 @@
-// AudioManager - Baby-friendly sounds with Punjabi support
-// FIXED: Better music, softer sounds, Punjabi text-to-speech
+// AudioManager - Sweet Baby Melodies (No Annoying Beeps!)
+// Perfect for a baby app - gentle, musical, delightful sounds
 
 class AudioManager {
   private static instance: AudioManager;
@@ -8,26 +8,16 @@ class AudioManager {
   private isMusicEnabled: boolean = true;
   private isSoundsEnabled: boolean = true;
   
-  // Simpler, reliable background music (always works)
-  private musicTracks = {
-    welcome: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVFApGn+DyvmwhBjaH0fPTgjMGHm7A7+OZSA0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw0PVqzn7a1aFgxDm+LyvmwhBjiF0PPTgjMGHm++7+OYRw==',
-    accessCode: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-    profileSelection: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-    greeting: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-    apiSetup: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-    onboarding: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-    mainApp: 'data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmM=',
-  };
-
-  // Audio context for baby-friendly sounds
+  // No music URLs - keeping it simple and silent by default
+  // Music can be enabled later if needed
   private audioContext: AudioContext | null = null;
 
   private constructor() {
     const musicPref = localStorage.getItem('diyaraMusicEnabled');
     const soundsPref = localStorage.getItem('diyaraSoundsEnabled');
     
-    this.isMusicEnabled = musicPref !== 'false';
-    this.isSoundsEnabled = soundsPref !== 'false';
+    this.isMusicEnabled = musicPref === 'true'; // Default OFF
+    this.isSoundsEnabled = soundsPref !== 'false'; // Default ON
 
     // Initialize audio context
     if (typeof window !== 'undefined' && 'AudioContext' in window) {
@@ -42,119 +32,75 @@ class AudioManager {
     return AudioManager.instance;
   }
 
-  // Baby-friendly sounds (soft, musical, playful)
-  private playSoftTone(frequency: number, duration: number, volume: number = 0.15) {
+  // Sweet baby melody note generator
+  private playNote(frequency: number, startTime: number, duration: number, volume: number = 0.1) {
     if (!this.isSoundsEnabled || !this.audioContext) return;
 
     try {
       const oscillator = this.audioContext.createOscillator();
       const gainNode = this.audioContext.createGain();
+      const now = this.audioContext.currentTime;
 
       oscillator.connect(gainNode);
       gainNode.connect(this.audioContext.destination);
 
+      // Soft sine wave (pure, gentle tone)
+      oscillator.type = 'sine';
       oscillator.frequency.value = frequency;
-      oscillator.type = 'sine'; // Soft sine wave
 
-      // Soft attack and decay
-      const now = this.audioContext.currentTime;
-      gainNode.gain.setValueAtTime(0, now);
-      gainNode.gain.linearRampToValueAtTime(volume, now + 0.01); // Quick fade in
-      gainNode.gain.exponentialRampToValueAtTime(0.001, now + duration / 1000); // Gentle fade out
+      // Gentle envelope (attack, sustain, release)
+      gainNode.gain.setValueAtTime(0, now + startTime);
+      gainNode.gain.linearRampToValueAtTime(volume, now + startTime + 0.02); // Quick attack
+      gainNode.gain.setValueAtTime(volume, now + startTime + duration - 0.05); // Sustain
+      gainNode.gain.linearRampToValueAtTime(0, now + startTime + duration); // Gentle release
 
-      oscillator.start(now);
-      oscillator.stop(now + duration / 1000);
+      oscillator.start(now + startTime);
+      oscillator.stop(now + startTime + duration);
     } catch (error) {
-      console.log('Sound effect error:', error);
+      console.log('Sound error:', error);
     }
   }
 
-  // Background music control (now uses data URLs - always works!)
-  playBackgroundMusic(screen: keyof typeof this.musicTracks) {
-    if (!this.isMusicEnabled) return;
+  // Musical scale notes (Major scale - happy and friendly)
+  private notes = {
+    C4: 261.63,   // Do
+    D4: 293.66,   // Re
+    E4: 329.63,   // Mi
+    F4: 349.23,   // Fa
+    G4: 392.00,   // Sol
+    A4: 440.00,   // La
+    B4: 493.88,   // Ti
+    C5: 523.25,   // Do (high)
+  };
 
-    const musicUrl = this.musicTracks[screen];
-    
-    if (this.currentMusicUrl === musicUrl && this.backgroundMusic && !this.backgroundMusic.paused) {
-      return;
-    }
-
-    this.stopBackgroundMusic();
-
-    try {
-      this.backgroundMusic = new Audio(musicUrl);
-      this.backgroundMusic.volume = 0.08; // Very gentle
-      this.backgroundMusic.loop = true;
-      this.currentMusicUrl = musicUrl;
-
-      // Try to play, but don't worry if blocked
-      const playPromise = this.backgroundMusic.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(error => {
-          console.log('Music autoplay prevented (this is normal)');
-        });
-      }
-    } catch (error) {
-      console.log('Music error:', error);
-    }
-  }
-
-  stopBackgroundMusic() {
-    if (this.backgroundMusic) {
-      this.backgroundMusic.pause();
-      this.backgroundMusic.currentTime = 0;
-      this.backgroundMusic = null;
-    }
-    this.currentMusicUrl = '';
-  }
-
-  // Baby-friendly button sounds
+  // Baby-friendly melodies
   playButtonClick() {
-    // Soft xylophone-like click
-    this.playSoftTone(800, 120, 0.12);
+    if (!this.isSoundsEnabled) return;
+    // Sweet "ding" - single note
+    this.playNote(this.notes.G4, 0, 0.15, 0.08);
   }
 
   playButtonHover() {
-    // Gentle bubble pop
-    this.playSoftTone(1200, 80, 0.08);
+    if (!this.isSoundsEnabled) return;
+    // Gentle "pop" - very soft
+    this.playNote(this.notes.C5, 0, 0.1, 0.05);
   }
 
   playProfileClick() {
-    // Happy ascending melody (like baby giggle)
-    this.playSoftTone(523, 150, 0.15); // C
-    setTimeout(() => this.playSoftTone(659, 150, 0.15), 100); // E
-    setTimeout(() => this.playSoftTone(784, 200, 0.15), 200); // G
+    if (!this.isSoundsEnabled) return;
+    // Happy ascending melody: Do-Mi-Sol (C-E-G chord)
+    this.playNote(this.notes.C4, 0, 0.2, 0.1);      // Do
+    this.playNote(this.notes.E4, 0.12, 0.2, 0.1);   // Mi
+    this.playNote(this.notes.G4, 0.24, 0.25, 0.1);  // Sol
   }
 
-  // Punjabi text-to-speech support
-  sayText(text: string, lang: string = 'pa-IN') {
+  sayProfileName(profileId: string) {
     if (!this.isSoundsEnabled) return;
     if (!('speechSynthesis' in window)) return;
 
-    window.speechSynthesis.cancel();
+    // First play a gentle chime
+    this.playNote(this.notes.C5, 0, 0.15, 0.08);
 
-    const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = lang; // Punjabi support
-    utterance.rate = 0.85; // Slower for clarity
-    utterance.pitch = 1.3; // Higher pitch (child-like)
-    utterance.volume = 0.8;
-
-    // Try to use a Punjabi voice if available
-    const voices = window.speechSynthesis.getVoices();
-    const punjabiVoice = voices.find(voice => 
-      voice.lang.startsWith('pa') || 
-      voice.lang.startsWith('hi') // Hindi as fallback
-    );
-    
-    if (punjabiVoice) {
-      utterance.voice = punjabiVoice;
-    }
-
-    window.speechSynthesis.speak(utterance);
-  }
-
-  // Say profile name (with Punjabi support)
-  sayProfileName(profileId: string) {
     const nameMap: Record<string, { text: string; lang: string }> = {
       'mom': { text: 'ਮੰਮੀ ਜੀ', lang: 'pa-IN' },
       'dad': { text: 'ਪਾਪਾ ਜੀ', lang: 'pa-IN' },
@@ -167,47 +113,93 @@ class AudioManager {
       'mami': { text: 'ਮਾਮੀ ਜੀ', lang: 'pa-IN' },
     };
 
+    const englishNames: Record<string, string> = {
+      'mom': 'Mumma Ji',
+      'dad': 'Papa Ji',
+      'daadaji': 'Daada Ji',
+      'daadiji': 'Daadi Ji',
+      'chachu': 'Chachu Ji',
+      'chachi': 'Chachi Ji',
+      'naniji': 'Nani Ji',
+      'mamu': 'Mamu Ji',
+      'mami': 'Mami Ji',
+    };
+
+    window.speechSynthesis.cancel();
+
     const profileData = nameMap[profileId.toLowerCase()];
+    const text = profileData?.text || englishNames[profileId.toLowerCase()] || profileId;
+    const lang = profileData?.lang || 'en-IN';
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.85;
+    utterance.pitch = 1.3;
+    utterance.volume = 0.8;
+
+    // Try to find appropriate voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(voice => 
+      voice.lang.startsWith(lang.split('-')[0])
+    );
     
-    if (profileData) {
-      // Try Punjabi first, fallback to English
-      this.sayText(profileData.text, profileData.lang);
-      
-      // Fallback to English pronunciation if Punjabi fails
-      setTimeout(() => {
-        const englishNames: Record<string, string> = {
-          'mom': 'Mumma Ji',
-          'dad': 'Papa Ji',
-          'daadaji': 'Daada Ji',
-          'daadiji': 'Daadi Ji',
-          'chachu': 'Chachu Ji',
-          'chachi': 'Chachi Ji',
-          'naniji': 'Nani Ji',
-          'mamu': 'Mamu Ji',
-          'mami': 'Mami Ji',
-        };
-        
-        if (!window.speechSynthesis.speaking) {
-          this.sayText(englishNames[profileId.toLowerCase()] || profileId, 'en-IN');
-        }
-      }, 500);
+    if (preferredVoice) {
+      utterance.voice = preferredVoice;
     }
+
+    setTimeout(() => {
+      window.speechSynthesis.speak(utterance);
+    }, 200);
+  }
+
+  sayText(text: string, lang: string = 'pa-IN') {
+    if (!this.isSoundsEnabled) return;
+    if (!('speechSynthesis' in window)) return;
+
+    window.speechSynthesis.cancel();
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = lang;
+    utterance.rate = 0.85;
+    utterance.pitch = 1.3;
+    utterance.volume = 0.8;
+
+    window.speechSynthesis.speak(utterance);
   }
 
   playSuccess() {
-    // Success melody (happy chime)
-    this.playSoftTone(523, 120, 0.15); // C
-    setTimeout(() => this.playSoftTone(659, 120, 0.15), 100); // E
-    setTimeout(() => this.playSoftTone(784, 120, 0.15), 200); // G
-    setTimeout(() => this.playSoftTone(1047, 200, 0.15), 300); // High C
+    if (!this.isSoundsEnabled) return;
+    // Happy celebration: C-E-G-C (Major chord progression)
+    this.playNote(this.notes.C4, 0, 0.15, 0.1);     // Do
+    this.playNote(this.notes.E4, 0.1, 0.15, 0.1);   // Mi
+    this.playNote(this.notes.G4, 0.2, 0.15, 0.1);   // Sol
+    this.playNote(this.notes.C5, 0.3, 0.25, 0.12);  // Do (high)
   }
 
   playTransition() {
-    // Magical sparkle
-    this.playSoftTone(1200, 100, 0.1);
-    setTimeout(() => this.playSoftTone(1600, 80, 0.08), 60);
+    if (!this.isSoundsEnabled) return;
+    // Magical twinkle: High notes descending
+    this.playNote(this.notes.C5, 0, 0.1, 0.06);
+    this.playNote(this.notes.G4, 0.08, 0.12, 0.05);
   }
 
+  // Background music control (keeping simple - no music by default)
+  playBackgroundMusic(screen: string) {
+    // Music disabled by default for now
+    // Can be enabled later if needed
+    if (!this.isMusicEnabled) return;
+  }
+
+  stopBackgroundMusic() {
+    if (this.backgroundMusic) {
+      this.backgroundMusic.pause();
+      this.backgroundMusic.currentTime = 0;
+      this.backgroundMusic = null;
+    }
+    this.currentMusicUrl = '';
+  }
+
+  // Toggle controls
   toggleMusic(enabled: boolean) {
     this.isMusicEnabled = enabled;
     localStorage.setItem('diyaraMusicEnabled', String(enabled));
@@ -252,7 +244,7 @@ class AudioManager {
     }, 50);
   }
 
-  fadeInMusic(screen: keyof typeof this.musicTracks, duration: number = 1000) {
+  fadeInMusic(screen: string, duration: number = 1000) {
     this.playBackgroundMusic(screen);
     
     if (!this.backgroundMusic) return;
@@ -280,7 +272,7 @@ export const useAudio = () => {
   const audioManager = AudioManager.getInstance();
   
   return {
-    playBackgroundMusic: (screen: string) => audioManager.playBackgroundMusic(screen as any),
+    playBackgroundMusic: (screen: string) => audioManager.playBackgroundMusic(screen),
     stopBackgroundMusic: () => audioManager.stopBackgroundMusic(),
     playButtonClick: () => audioManager.playButtonClick(),
     playButtonHover: () => audioManager.playButtonHover(),
