@@ -28,6 +28,10 @@ function App() {
   useEffect(() => {
     if (user) {
       loadProfiles();
+    } else {
+      // No user, so no profiles to load
+      setLoadingProfiles(false);
+      setProfiles([]);
     }
   }, [user]);
 
