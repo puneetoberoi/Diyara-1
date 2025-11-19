@@ -11,12 +11,15 @@ interface Message {
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
+  isTyping?: boolean; // New field to track active streaming
 }
 
 // Bytez API Configuration
-// FIX 1: usage of .trim() to remove accidental spaces from Vercel
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'microsoft/Phi-3-mini-4k-instruct';
+
+// "Phi-3" is good, but "Qwen" is often faster on Bytez. 
+// If this is still slow, try: 'Qwen/Qwen2-1.5B-Instruct'
+const MODEL_ID = 'microsoft/Phi-3-mini-4k-instruct'; 
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
@@ -28,30 +31,24 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     },
   ]);
   const [inputText, setInputText] = useState('');
-  const [isTyping, setIsTyping] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false); // Track streaming state
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isTyping]);
-  
-  // Debug Log
-  useEffect(() => {
-     console.log("DEBUG CHECK:");
-     console.log("1. Key exists?", !!BYTEZ_API_KEY);
-     // Don't log the full key, just the start to verify it's not "undefined"
-     console.log("2. Key starts with:", BYTEZ_API_KEY?.substring(0, 3) + "..."); 
-  }, []);
+  }, [messages, isStreaming]);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputText.trim()) return;
+    if (!inputText.trim() || isStreaming) return;
 
     if (!BYTEZ_API_KEY) {
       alert("Missing API Key! Please check Vercel Environment Variables.");
       return;
     }
 
+    // 1. Add User Message
     const userMsgId = Date.now().toString();
     const newUserMessage: Message = {
       id: userMsgId,
@@ -60,20 +57,28 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       timestamp: new Date(),
     };
 
-    setMessages((prev) => [...prev, newUserMessage]);
+    // 2. Create Placeholder for AI Message (Empty at first)
+    const aiMsgId = (Date.now() + 1).toString();
+    const newAiMessage: Message = {
+      id: aiMsgId,
+      text: "", // Start empty, we will fill this streamingly
+      sender: 'ai',
+      timestamp: new Date(),
+      isTyping: true
+    };
+
+    setMessages((prev) => [...prev, newUserMessage, newAiMessage]);
     setInputText('');
-    setIsTyping(true);
+    setIsStreaming(true);
 
     try {
       const conversationHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.text
       }));
-      
       conversationHistory.push({ role: 'user', content: newUserMessage.text });
 
-      console.log("Sending request to Bytez..."); // Debug log
-
+      // 3. Fetch with STREAMING enabled
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -82,45 +87,77 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         },
         body: JSON.stringify({
           model: MODEL_ID,
+          stream: true, // <--- FIX 1: Enable Streaming (Instant start)
+          max_tokens: 500, // <--- FIX 2: Increase limit (Prevents cutoff)
           messages: [
             { 
               role: "system", 
-              content: `You are acting as ${profile.name}, who is the user's ${profile.relation}. 
+              content: `You are acting as ${profile.name}, the user's ${profile.relation}. 
                         Your personality is: ${profile.topic}. 
-                        Keep responses short, warm, and encouraging.` 
+                        Keep responses warm, concise (2-3 sentences), and encouraging.` 
             },
             ...conversationHistory
           ],
         })
       });
 
-      const data = await response.json();
+      if (!response.ok) throw new Error(response.statusText);
+      if (!response.body) throw new Error("No response body");
 
-      // FIX 2: Log the ACTUAL error from the server
-      if (!response.ok) {
-        console.error("Server Error Details:", data); // <--- THIS IS KEY
-        throw new Error(data.error?.message || `Server error: ${response.status}`);
+      // 4. Read the Stream
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder("utf-8");
+      let aiTextAccumulator = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        // Decode the chunk
+        const chunk = decoder.decode(value, { stream: true });
+        
+        // Parse OpenAI-style stream lines ("data: {...}")
+        const lines = chunk.split("\n").filter(line => line.trim() !== "");
+        
+        for (const line of lines) {
+          if (line.includes("[DONE]")) return; // Stream finished
+          
+          if (line.startsWith("data: ")) {
+            try {
+              const jsonStr = line.replace("data: ", "");
+              const data = JSON.parse(jsonStr);
+              const content = data.choices[0]?.delta?.content || "";
+              
+              if (content) {
+                aiTextAccumulator += content;
+                
+                // Update UI in real-time
+                setMessages(prev => prev.map(msg => 
+                  msg.id === aiMsgId 
+                    ? { ...msg, text: aiTextAccumulator } 
+                    : msg
+                ));
+              }
+            } catch (e) {
+              console.error("Error parsing stream chunk", e);
+            }
+          }
+        }
       }
 
-      const aiText = data.choices?.[0]?.message?.content || "I didn't catch that.";
-      
-      setMessages((prev) => [...prev, {
-        id: (Date.now() + 1).toString(),
-        text: aiText,
-        sender: 'ai',
-        timestamp: new Date(),
-      }]);
-
     } catch (error: any) {
-      console.error('[ChatFeature] Detailed Error:', error);
-      setMessages((prev) => [...prev, {
-        id: Date.now().toString(),
-        text: `Error: ${error.message}. Check console for details.`,
-        sender: 'ai',
-        timestamp: new Date()
-      }]);
+      console.error('[ChatFeature] Error:', error);
+      setMessages(prev => prev.map(msg => 
+        msg.id === aiMsgId 
+          ? { ...msg, text: "😔 I lost connection to my brain. Please try again.", isTyping: false } 
+          : msg
+      ));
     } finally {
-      setIsTyping(false);
+      setIsStreaming(false);
+      // Remove typing status
+      setMessages(prev => prev.map(msg => 
+        msg.id === aiMsgId ? { ...msg, isTyping: false } : msg
+      ));
     }
   };
 
@@ -157,19 +194,15 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
               }`}
             >
               <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
+              {msg.isTyping && (
+                 <span className="inline-block w-2 h-4 ml-1 bg-purple-400 animate-pulse">|</span>
+              )}
               <p className={`text-[10px] mt-2 opacity-50 ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
         ))}
-        {isTyping && (
-          <div className="flex justify-start animate-pulse">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-sm p-4">
-               <span className="text-slate-400 text-xs">Thinking...</span>
-            </div>
-          </div>
-        )}
         <div ref={messagesEndRef} />
       </div>
 
@@ -180,11 +213,12 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={`Ask ${profile.name} something...`}
-            className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500"
+            placeholder={isStreaming ? "Wait for reply..." : `Ask ${profile.name} something...`}
+            disabled={isStreaming}
+            className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
-          <button type="submit" disabled={!inputText.trim() || isTyping} className="p-3 bg-purple-600 rounded-full text-white disabled:opacity-50">
-             🚀
+          <button type="submit" disabled={!inputText.trim() || isStreaming} className="p-3 bg-purple-600 rounded-full text-white disabled:bg-slate-700 disabled:cursor-not-allowed transition-all">
+             {isStreaming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "🚀"}
           </button>
         </form>
       </div>
