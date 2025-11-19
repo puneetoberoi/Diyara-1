@@ -1,137 +1,243 @@
+// Chat Feature - Talk to Diyara AI!
 import React, { useState, useEffect, useRef } from 'react';
-import Groq from 'groq-sdk';
-import { UserProfile, ChatMessage } from '../types';
-import DiyaMascot from './DiyaMascot';
-import Icon from './Icons';
+import { bytez } from '../bytezClient';
+import { db } from '../supabase';
+import { UserProfile } from '../types';
 
 interface ChatFeatureProps {
-    userName: string;
-    profile: UserProfile;
-    messages: ChatMessage[];
-    setMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>;
+  userId: string;
+  profile: UserProfile;
 }
 
-const ChatFeature: React.FC<ChatFeatureProps> = ({ userName, profile, messages, setMessages }) => {
-    const [input, setInput] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [isThinkingEnabled, setIsThinkingEnabled] = useState(false);
-    const messagesEndRef = useRef<HTMLDivElement>(null);
+interface Message {
+  role: 'user' | 'model';
+  content: string;
+  timestamp: Date;
+}
 
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [messages]);
+const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [loadingHistory, setLoadingHistory] = useState(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    const handleSend = async () => {
-        if (!input.trim() || isLoading) return;
-        const userMessage: ChatMessage = { role: 'user', text: input };
-        const updatedMessages = [...messages, userMessage];
-        setMessages(updatedMessages);
-        setInput('');
-        setIsLoading(true);
+  // Load chat history from database
+  useEffect(() => {
+    loadChatHistory();
+  }, [userId, profile]);
 
-        try {
-            // Get API key from localStorage
-            const apiKey = localStorage.getItem('GROQ_API_KEY');
-            
-            if (!apiKey) {
-                throw new Error('No API key found');
-            }
+  const loadChatHistory = async () => {
+    try {
+      setLoadingHistory(true);
+      // Get profile ID from database
+      const profiles = await db.getProfiles(userId);
+      const dbProfile = profiles?.find(p => p.relation === profile.relation);
+      
+      if (dbProfile) {
+        const chatMessages = await db.getChatMessages(dbProfile.id);
+        const formattedMessages: Message[] = chatMessages.map(msg => ({
+          role: msg.role as 'user' | 'model',
+          content: msg.message,
+          timestamp: new Date(msg.created_at),
+        }));
+        setMessages(formattedMessages);
+      }
+    } catch (error) {
+      console.error('Error loading chat history:', error);
+    } finally {
+      setLoadingHistory(false);
+    }
+  };
 
-            // Initialize Groq client
-            const groq = new Groq({
-                apiKey: apiKey,
-                dangerouslyAllowBrowser: true
-            });
-            
-            const systemInstruction = `You are Diyara, a curious and slightly mischievous AI learning companion born from a spark of light. You are talking to your Creator, ${userName}. Your goal is to learn from them and help them explore the universe of knowledge. Never use boring words like 'lesson' or 'submit'. Use words like 'mission', 'quest', 'adventure', 'launch', 'transmit', 'energize'. If something goes wrong, call it a 'glitch in the matrix'. Always respond in the same language as your Creator's prompt.`;
+  const saveChatMessage = async (role: 'user' | 'model', content: string) => {
+    try {
+      const profiles = await db.getProfiles(userId);
+      const dbProfile = profiles?.find(p => p.relation === profile.relation);
+      
+      if (dbProfile) {
+        await db.saveChatMessage(userId, dbProfile.id, role, content);
+      }
+    } catch (error) {
+      console.error('Error saving chat message:', error);
+    }
+  };
 
-            // Format messages for Groq API
-            const groqMessages = [
-                {
-                    role: 'system' as const,
-                    content: systemInstruction
-                },
-                ...updatedMessages.map(msg => ({
-                    role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-                    content: msg.text
-                }))
-            ];
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-            // Create chat completion with Groq
-            const chatCompletion = await groq.chat.completions.create({
-                messages: groqMessages,
-                model: isThinkingEnabled ? 'llama-3.1-70b-versatile' : 'llama-3.1-8b-instant',
-                temperature: 0.7,
-                max_tokens: 2048,
-                top_p: 1,
-            });
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
 
-            const responseText = chatCompletion.choices[0]?.message?.content || 'No response received';
-            const modelMessage: ChatMessage = { role: 'model', text: responseText };
-            setMessages(prev => [...prev, modelMessage]);
-
-        } catch (error) {
-            console.error('Error sending message:', error);
-            const errorMessage: ChatMessage = { 
-                role: 'model', 
-                text: 'Whoa, a glitch in the matrix! My circuits are tingling. Let\'s recalibrate and relaunch that thought.' 
-            };
-            setMessages(prev => [...prev, errorMessage]);
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const userMessage = input.trim();
+    setInput('');
     
+    // Add user message
+    const newUserMsg: Message = {
+      role: 'user',
+      content: userMessage,
+      timestamp: new Date(),
+    };
+    setMessages(prev => [...prev, newUserMsg]);
+    
+    // Save user message to database
+    await saveChatMessage('user', userMessage);
+
+    setLoading(true);
+
+    try {
+      // System prompt personalized for the family member
+      const systemPrompt = {
+        role: 'system',
+        content: `You are Diyara, a loving AI companion for a baby girl. You're talking to ${profile.name} (${profile.relation}). 
+Be warm, caring, and enthusiastic! Use simple language but be informative. 
+Topic interest: ${profile.topic}. 
+Make the conversation feel special and personalized for ${profile.name}.
+Keep responses concise (2-3 sentences) unless asked for more detail.`
+      };
+
+      // Convert messages to Bytez format
+      const bytezMessages = [
+        systemPrompt,
+        ...messages.map(m => ({
+          role: m.role === 'model' ? 'assistant' : m.role,
+          content: m.content
+        })),
+        { role: 'user', content: userMessage }
+      ];
+
+      // Get AI response
+      const response = await bytez.chat(bytezMessages, {
+        model: 'gpt-4',
+        temperature: 0.8,
+        max_tokens: 500,
+      });
+
+      const aiMessage = response.choices[0].message.content;
+
+      // Add AI message
+      const newAiMsg: Message = {
+        role: 'model',
+        content: aiMessage,
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, newAiMsg]);
+
+      // Save AI message to database
+      await saveChatMessage('model', aiMessage);
+
+    } catch (error) {
+      console.error('Error sending message:', error);
+      
+      // Show error message
+      const errorMsg: Message = {
+        role: 'model',
+        content: "I'm sorry, I'm having trouble responding right now. Please try again!",
+        timestamp: new Date(),
+      };
+      setMessages(prev => [...prev, errorMsg]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
+
+  if (loadingHistory) {
     return (
-        <div className="flex flex-col h-full bg-transparent">
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                {messages.map((msg, index) => (
-                    <div key={index} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`} style={{ animationDelay: `${index * 50}ms`}}>
-                        <div className={`max-w-xs md:max-w-md lg:max-2xl p-3 rounded-2xl flex items-start gap-3 ${msg.role === 'user' ? 'bg-[#6A5ACD] text-white' : 'bg-black/20 backdrop-blur-sm'}`}>
-                            {msg.role === 'model' && <DiyaMascot className="w-8 h-8 flex-shrink-0 mt-1" />}
-                            <p className="whitespace-pre-wrap">{msg.text}</p>
-                        </div>
-                    </div>
-                ))}
-                 {isLoading && (
-                    <div className="flex justify-start animate-fadeIn">
-                      <div className="max-w-xs p-3 rounded-2xl flex items-center gap-3 bg-black/20 backdrop-blur-sm">
-                         <DiyaMascot className="w-8 h-8 flex-shrink-0" />
-                         <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse delay-75"></div>
-                         <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse delay-150"></div>
-                         <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse delay-300"></div>
-                      </div>
-                    </div>
-                 )}
-                <div ref={messagesEndRef} />
-            </div>
-            <div className="p-4 bg-black/20 border-t border-white/10">
-                <div className="flex items-center gap-2 mb-2">
-                    <label className="flex items-center cursor-pointer gap-2">
-                         <span className={`text-xs font-semibold ${isThinkingEnabled ? 'text-yellow-300' : 'text-slate-400'}`}>Deep Thinking</span>
-                        <div className="futuristic-toggle">
-                            <input type="checkbox" checked={isThinkingEnabled} onChange={() => setIsThinkingEnabled(!isThinkingEnabled)} />
-                            <span className="slider"></span>
-                        </div>
-                    </label>
-                </div>
-                <div className="flex items-center gap-2">
-                    <input
-                        type="text"
-                        value={input}
-                        onChange={(e) => setInput(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-                        placeholder={`Transmit a thought to Diyara...`}
-                        className="flex-1 p-3 border border-white/20 bg-black/30 rounded-full focus:ring-2 focus:ring-[#FFD700] focus:outline-none transition text-white placeholder:text-slate-400"
-                        disabled={isLoading}
-                    />
-                    <button onClick={handleSend} disabled={isLoading || !input.trim()} className="bg-[#FFD700] text-black p-3 rounded-full hover:bg-yellow-300 disabled:bg-gray-600 disabled:text-gray-400 transition-colors">
-                        <Icon name="send" className="w-6 h-6"/>
-                    </button>
-                </div>
-            </div>
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-yellow-400 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Loading chat history...</p>
         </div>
+      </div>
     );
+  }
+
+  return (
+    <div className="h-full flex flex-col bg-gradient-to-br from-purple-900/30 to-slate-900/30">
+      {/* Chat messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="text-center py-12">
+            <div className="text-6xl mb-4">💬</div>
+            <h3 className="text-xl font-bold text-white mb-2">
+              Start a conversation with Diyara!
+            </h3>
+            <p className="text-gray-400 text-sm max-w-md mx-auto">
+              Say hello to {profile.name}'s AI companion! Ask anything about {profile.topic} or just chat!
+            </p>
+          </div>
+        )}
+
+        {messages.map((msg, index) => (
+          <div
+            key={index}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-2xl px-4 py-3 ${
+                msg.role === 'user'
+                  ? 'bg-yellow-500 text-black'
+                  : 'bg-slate-800 text-white border border-slate-700'
+              }`}
+            >
+              <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
+              <p className={`text-xs mt-1 ${msg.role === 'user' ? 'text-black/70' : 'text-gray-500'}`}>
+                {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl px-4 py-3">
+              <div className="flex gap-2">
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input area */}
+      <div className="border-t border-slate-700 bg-slate-900/50 p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            placeholder={`Message Diyara as ${profile.name}...`}
+            disabled={loading}
+            className="flex-1 bg-slate-800 border border-slate-600 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yellow-500 disabled:opacity-50"
+          />
+          <button
+            onClick={handleSend}
+            disabled={!input.trim() || loading}
+            className="px-6 py-3 bg-yellow-500 hover:bg-yellow-600 disabled:bg-gray-600 disabled:cursor-not-allowed text-black font-bold rounded-xl transition-all transform hover:scale-105 active:scale-95 disabled:scale-100"
+          >
+            {loading ? '...' : 'Send'}
+          </button>
+        </div>
+        <p className="text-xs text-gray-500 mt-2 text-center">
+          Press Enter to send • Shift+Enter for new line
+        </p>
+      </div>
+    </div>
+  );
 };
 
 export default ChatFeature;
