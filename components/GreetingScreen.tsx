@@ -23,6 +23,14 @@ const GreetingScreen: React.FC<GreetingScreenProps> = ({ profile, onComplete }) 
 
   return (
     <div className="fixed inset-0 w-screen h-screen bg-gradient-to-br from-purple-900 via-slate-900 to-black flex items-center justify-center overflow-hidden">
+      {/* Back button */}
+      <button
+        onClick={onComplete}
+        className="absolute top-4 left-4 z-50 px-4 py-2 bg-slate-800/80 hover:bg-slate-700 text-white rounded-lg border border-slate-600 transition-all"
+      >
+        ← Skip
+      </button>
+
       {/* Animated background */}
       <div className="absolute inset-0">
         {[...Array(20)].map((_, i) => (
