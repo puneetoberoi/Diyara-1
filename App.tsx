@@ -50,7 +50,7 @@ function App() {
           topicIcon: p.topic_icon || '🌌',
         }));
         setProfiles(mappedProfiles);
-        setSelectedProfile(mappedProfiles[0]);
+        //setSelectedProfile(mappedProfiles[0]);
       } else {
         setProfiles([]);
       }
