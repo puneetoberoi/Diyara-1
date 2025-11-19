@@ -155,12 +155,19 @@ function App() {
     </div>
   );
 
-  // Render feature based on active tab
+  // [Debug Version] Render feature based on active tab
   const renderFeature = () => {
-    if (!selectedProfile || !user) return null;
+    console.log('[App] Rendering feature. ActiveTab:', activeTab); // <--- DEBUG LOG
+    console.log('[App] Selected Profile:', selectedProfile?.name); // <--- DEBUG LOG
+
+    if (!selectedProfile || !user) {
+      console.log('[App] No profile or user, returning null');
+      return null;
+    }
 
     switch (activeTab) {
-      case 'chat':
+      case 'chat': // Make sure this matches what BottomNav sends exactly
+        console.log('[App] Matched "chat", rendering ChatFeature');
         return <ChatFeature userId={user.id} profile={selectedProfile} />;
       case 'create':
         return <CreateFeature userId={user.id} profile={selectedProfile} />;
@@ -175,7 +182,14 @@ function App() {
       case 'garden':
         return <FeaturePlaceholder featureName="Garden" icon="🌻" />;
       default:
-        return null;
+        console.warn('[App] Unknown tab selected:', activeTab); // <--- THIS WILL SHOW THE ERROR
+        return (
+           <div className="p-10 text-white text-center">
+              <h2 className="text-xl font-bold text-red-400">Debug Error</h2>
+              <p>Unknown Tab: "{activeTab}"</p>
+              <p>Expected: "chat"</p>
+           </div>
+        );
     }
   };
 
