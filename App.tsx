@@ -135,17 +135,48 @@ function App() {
   const renderFeature = () => {
     if (!selectedProfile || !user) return null;
 
+    // Temporary placeholders for Phase 1 testing
+    const FeaturePlaceholder = ({ featureName, icon }: { featureName: string; icon: string }) => (
+      <div className="min-h-full flex items-center justify-center p-8 bg-gradient-to-br from-purple-900/50 to-slate-900/50">
+        <div className="max-w-md w-full text-center">
+          <div className="text-8xl mb-6 animate-bounce">{icon}</div>
+          <h2 className="text-3xl font-bold text-white mb-4">{featureName}</h2>
+          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-6 mb-6">
+            <p className="text-yellow-300 text-lg mb-2">🚧 Coming in Phase 2!</p>
+            <p className="text-gray-300 text-sm">
+              This feature will be integrated with Bytez API and fully functional soon!
+            </p>
+          </div>
+          <div className="bg-slate-800/50 border border-slate-600 rounded-xl p-4 text-left space-y-2">
+            <p className="text-green-400 text-sm flex items-center gap-2">
+              <span>✅</span> Authentication working
+            </p>
+            <p className="text-green-400 text-sm flex items-center gap-2">
+              <span>✅</span> Database connected
+            </p>
+            <p className="text-green-400 text-sm flex items-center gap-2">
+              <span>✅</span> Profiles saving
+            </p>
+            <p className="text-yellow-400 text-sm flex items-center gap-2">
+              <span>⏳</span> Bytez integration next
+            </p>
+          </div>
+          <p className="text-gray-500 text-xs mt-6">Phase 1 Complete! 🎉</p>
+        </div>
+      </div>
+    );
+
     switch (activeTab) {
       case 'galaxy':
-        return <GalaxyView userId={user.id} profile={selectedProfile} />;
+        return <FeaturePlaceholder featureName="Galaxy Missions" icon="🌌" />;
       case 'chat':
-        return <ChatFeature userId={user.id} profile={selectedProfile} />;
+        return <FeaturePlaceholder featureName="Chat with Diyara" icon="💬" />;
       case 'create':
-        return <CreateFeature userId={user.id} profile={selectedProfile} />;
+        return <FeaturePlaceholder featureName="Create Images" icon="🎨" />;
       case 'journal':
-        return <AudioJournalFeature userId={user.id} profile={selectedProfile} />;
+        return <FeaturePlaceholder featureName="Audio Journal" icon="🎙️" />;
       case 'talk':
-        return <LiveTalkFeature userId={user.id} profile={selectedProfile} />;
+        return <FeaturePlaceholder featureName="Live Talk" icon="🗣️" />;
       default:
         return null;
     }
@@ -195,6 +226,20 @@ function App() {
         userName={selectedProfile.name}
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
+      
+      {/* Temporary: Profile Switch Button */}
+      <div className="bg-yellow-500/20 border-b border-yellow-500/50 px-4 py-2 flex items-center justify-between">
+        <p className="text-yellow-300 text-sm">
+          🚧 Phase 1 Testing - Features coming in Phase 2!
+        </p>
+        <button
+          onClick={() => setSelectedProfile(null)}
+          className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition"
+        >
+          Switch Profile
+        </button>
+      </div>
+
       <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
         {renderFeature()}
       </main>
