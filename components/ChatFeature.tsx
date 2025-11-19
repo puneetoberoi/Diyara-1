@@ -14,12 +14,11 @@ interface Message {
 }
 
 // Bytez API Configuration
-const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY;
-// Try this model if Llama-3 is failing
+// FIX 1: usage of .trim() to remove accidental spaces from Vercel
+const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
 const MODEL_ID = 'mistralai/Mistral-7B-Instruct-v0.1';
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
-  // Initial greeting message
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -32,24 +31,27 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
   
-  // Add this inside ChatFeature component
-  console.log("DEBUG: API Key is:", import.meta.env.VITE_BYTEZ_API_KEY ? "Present" : "MISSING");
+  // Debug Log
+  useEffect(() => {
+     console.log("DEBUG CHECK:");
+     console.log("1. Key exists?", !!BYTEZ_API_KEY);
+     // Don't log the full key, just the start to verify it's not "undefined"
+     console.log("2. Key starts with:", BYTEZ_API_KEY?.substring(0, 3) + "..."); 
+  }, []);
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputText.trim()) return;
 
     if (!BYTEZ_API_KEY) {
-      alert("Missing API Key! Please add VITE_BYTEZ_API_KEY to your .env file.");
+      alert("Missing API Key! Please check Vercel Environment Variables.");
       return;
     }
 
-    // 1. Add User Message to UI immediately
     const userMsgId = Date.now().toString();
     const newUserMessage: Message = {
       id: userMsgId,
@@ -63,17 +65,15 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     setIsTyping(true);
 
     try {
-      // 2. Prepare Context for AI (Previous messages + New message)
-      // We format it exactly how OpenAI/Bytez expects it: { role: "user" | "assistant", content: "..." }
       const conversationHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.text
       }));
       
-      // Add the new message we just typed
       conversationHistory.push({ role: 'user', content: newUserMessage.text });
 
-      // 3. Call Bytez API
+      console.log("Sending request to Bytez..."); // Debug log
+
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -83,13 +83,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         body: JSON.stringify({
           model: MODEL_ID,
           messages: [
-            // System prompt to give the AI a personality
             { 
               role: "system", 
               content: `You are acting as ${profile.name}, who is the user's ${profile.relation}. 
                         Your personality is: ${profile.topic}. 
-                        Keep responses short, warm, and encouraging. 
-                        Use emojis occasionally.` 
+                        Keep responses short, warm, and encouraging.` 
             },
             ...conversationHistory
           ],
@@ -98,28 +96,26 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
       const data = await response.json();
 
+      // FIX 2: Log the ACTUAL error from the server
       if (!response.ok) {
-        throw new Error(data.error?.message || 'Failed to get response from Bytez');
+        console.error("Server Error Details:", data); // <--- THIS IS KEY
+        throw new Error(data.error?.message || `Server error: ${response.status}`);
       }
 
-      // 4. Handle AI Response
-      const aiText = data.choices?.[0]?.message?.content || "I didn't catch that, could you say it again?";
+      const aiText = data.choices?.[0]?.message?.content || "I didn't catch that.";
       
-      const aiResponse: Message = {
+      setMessages((prev) => [...prev, {
         id: (Date.now() + 1).toString(),
         text: aiText,
         sender: 'ai',
         timestamp: new Date(),
-      };
+      }]);
 
-      setMessages((prev) => [...prev, aiResponse]);
-
-    } catch (error) {
-      console.error('[ChatFeature] Error calling API:', error);
-      // Show error in chat bubble so user knows it failed
+    } catch (error: any) {
+      console.error('[ChatFeature] Detailed Error:', error);
       setMessages((prev) => [...prev, {
         id: Date.now().toString(),
-        text: "😔 Oops! I'm having trouble connecting to my brain right now. Please try again.",
+        text: `Error: ${error.message}. Check console for details.`,
         sender: 'ai',
         timestamp: new Date()
       }]);
@@ -167,14 +163,10 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             </div>
           </div>
         ))}
-
-        {/* Typing Indicator */}
         {isTyping && (
           <div className="flex justify-start animate-pulse">
-            <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-sm p-4 flex gap-1 items-center">
-              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
-              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
-              <div className="w-2 h-2 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+            <div className="bg-slate-800 border border-slate-700 rounded-2xl rounded-tl-sm p-4">
+               <span className="text-slate-400 text-xs">Thinking...</span>
             </div>
           </div>
         )}
@@ -183,10 +175,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
       {/* Input Area */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4 pb-6">
-        <form
-          onSubmit={handleSendMessage}
-          className="flex items-center gap-2 bg-slate-800/90 backdrop-blur-lg border border-slate-700 rounded-full p-2 pr-3 shadow-2xl"
-        >
+        <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-slate-800/90 backdrop-blur-lg border border-slate-700 rounded-full p-2 pr-3 shadow-2xl">
           <input
             type="text"
             value={inputText}
@@ -194,18 +183,8 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             placeholder={`Ask ${profile.name} something...`}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500"
           />
-          <button
-            type="submit"
-            disabled={!inputText.trim() || isTyping}
-            className={`p-3 rounded-full transition-all duration-200 ${
-              inputText.trim() && !isTyping
-                ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-lg shadow-purple-600/30 transform hover:scale-105'
-                : 'bg-slate-700 text-slate-500 cursor-not-allowed'
-            }`}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
-              <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
-            </svg>
+          <button type="submit" disabled={!inputText.trim() || isTyping} className="p-3 bg-purple-600 rounded-full text-white disabled:opacity-50">
+             🚀
           </button>
         </form>
       </div>
