@@ -16,7 +16,7 @@ interface Message {
 // Bytez API Configuration
 // FIX 1: usage of .trim() to remove accidental spaces from Vercel
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'mistralai/Mistral-7B-Instruct-v0.1';
+const MODEL_ID = 'microsoft/Phi-3-mini-4k-instruct';
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
