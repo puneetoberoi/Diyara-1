@@ -69,31 +69,46 @@ function App() {
     }
   };
 
-  const handleProfileSelect = async (profile: UserProfile) => {
+  const handleProfileSelect = async (profile: any) => {
     if (!user) return;
 
     try {
+      // Convert FamilyProfile to database format
+      const dbProfile = {
+        name: profile.name,
+        relation: profile.name, // Use name as relation (Mom, Dad, etc.)
+        avatar_url: profile.avatarUrl || getDefaultAvatar(profile.name),
+        punjabi_name: getDefaultGreeting(profile.name),
+        personalized_message: getDefaultGreeting(profile.name),
+        topic: getDefaultTopic(profile.name),
+        topic_icon: getDefaultTopicIcon(profile.name),
+      };
+      
+      console.log('[App] Creating profile with data:', dbProfile);
+
       // Check if profile exists in database
       const existingProfiles = await db.getProfiles(user.id);
-      const exists = existingProfiles?.some(p => p.relation.toLowerCase() === profile.relation.toLowerCase());
+      const exists = existingProfiles?.some(p => 
+        p.relation.toLowerCase() === dbProfile.relation.toLowerCase()
+      );
 
       if (!exists) {
         // Create new profile in database
-        const profileData = {
-          name: profile.name,
-          relation: profile.relation, // This is the critical field!
-          avatar_url: profile.avatar,
-          punjabi_name: profile.greeting,
-          personalized_message: profile.greeting,
-          topic: profile.topic,
-          topic_icon: profile.topicIcon,
-        };
-        
-        console.log('[App] Creating profile with data:', profileData);
-        await db.createProfile(user.id, profileData);
+        await db.createProfile(user.id, dbProfile);
       }
 
-      setSelectedProfile(profile);
+      // Convert to UserProfile format for the app
+      const userProfile: UserProfile = {
+        id: profile.id,
+        name: profile.name,
+        relation: profile.name,
+        avatar: getDefaultAvatar(profile.name),
+        greeting: getDefaultGreeting(profile.name),
+        topic: getDefaultTopic(profile.name),
+        topicIcon: getDefaultTopicIcon(profile.name),
+      };
+
+      setSelectedProfile(userProfile);
       setShowGreeting(true);
     } catch (error) {
       console.error('Error selecting profile:', error);
@@ -278,6 +293,21 @@ function getDefaultTopic(relation: string): string {
     'Mami': 'Art & Creativity',
   };
   return topics[relation] || 'General Topics';
+}
+
+function getDefaultTopicIcon(relation: string): string {
+  const icons: Record<string, string> = {
+    'Mom': '❤️',
+    'Dad': '🚀',
+    'Daada Ji': '🌌',
+    'Daadi Ji': '📚',
+    'Chachu': '🎮',
+    'Chachi': '🎵',
+    'Nani Ji': '🍳',
+    'Mamu': '⚽',
+    'Mami': '🎨',
+  };
+  return icons[relation] || '✨';
 }
 
 export default App;
