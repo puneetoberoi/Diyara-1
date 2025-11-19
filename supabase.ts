@@ -43,13 +43,20 @@ export const db = {
   },
 
   async createProfile(userId: string, profileData: any) {
+    console.log('[DB] Creating profile:', { userId, profileData });
+    
     const { data, error } = await supabase
       .from('profiles')
       .insert([{ user_id: userId, ...profileData }])
       .select()
       .single();
     
-    if (error) throw error;
+    if (error) {
+      console.error('[DB] Error creating profile:', error);
+      throw error;
+    }
+    
+    console.log('[DB] Profile created successfully:', data);
     return data;
   },
 
