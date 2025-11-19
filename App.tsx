@@ -75,25 +75,29 @@ function App() {
     try {
       // Check if profile exists in database
       const existingProfiles = await db.getProfiles(user.id);
-      const exists = existingProfiles?.some(p => p.relation.toLowerCase() === profile.id);
+      const exists = existingProfiles?.some(p => p.relation.toLowerCase() === profile.relation.toLowerCase());
 
       if (!exists) {
         // Create new profile in database
-        await db.createProfile(user.id, {
+        const profileData = {
           name: profile.name,
-          relation: profile.relation,
+          relation: profile.relation, // This is the critical field!
           avatar_url: profile.avatar,
           punjabi_name: profile.greeting,
           personalized_message: profile.greeting,
           topic: profile.topic,
           topic_icon: profile.topicIcon,
-        });
+        };
+        
+        console.log('[App] Creating profile with data:', profileData);
+        await db.createProfile(user.id, profileData);
       }
 
       setSelectedProfile(profile);
       setShowGreeting(true);
     } catch (error) {
       console.error('Error selecting profile:', error);
+      alert('Error creating profile. Please try again.');
     }
   };
 
