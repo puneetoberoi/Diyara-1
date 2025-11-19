@@ -51,6 +51,7 @@ function App() {
         }));
         setProfiles(mappedProfiles);
         //setSelectedProfile(mappedProfiles[0]);
+        setSelectedProfile(null);
       } else {
         setProfiles([]);
       }
