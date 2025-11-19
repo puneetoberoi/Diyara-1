@@ -78,7 +78,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': BYTEZ_API_KEY // Bytez uses the raw key in Authorization header
+          'Authorization': `Bearer ${BYTEZ_API_KEY}`
         },
         body: JSON.stringify({
           model: MODEL_ID,
