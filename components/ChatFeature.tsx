@@ -13,7 +13,12 @@ interface Message {
   timestamp: Date;
 }
 
+// Bytez API Configuration
+const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY;
+const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct'; // You can change this model later
+
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
+  // Initial greeting message
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
@@ -26,7 +31,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom when messages change
+  // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
@@ -35,9 +40,15 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     e?.preventDefault();
     if (!inputText.trim()) return;
 
-    // 1. Add User Message
+    if (!BYTEZ_API_KEY) {
+      alert("Missing API Key! Please add VITE_BYTEZ_API_KEY to your .env file.");
+      return;
+    }
+
+    // 1. Add User Message to UI immediately
+    const userMsgId = Date.now().toString();
     const newUserMessage: Message = {
-      id: Date.now().toString(),
+      id: userMsgId,
       text: inputText,
       sender: 'user',
       timestamp: new Date(),
@@ -47,18 +58,70 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     setInputText('');
     setIsTyping(true);
 
-    // 2. Simulate AI Response (Replace this with Bytez API later)
-    // TODO: Call your Bytez/OpenAI API here
-    setTimeout(() => {
+    try {
+      // 2. Prepare Context for AI (Previous messages + New message)
+      // We format it exactly how OpenAI/Bytez expects it: { role: "user" | "assistant", content: "..." }
+      const conversationHistory = messages.map(msg => ({
+        role: msg.sender === 'user' ? 'user' : 'assistant',
+        content: msg.text
+      }));
+      
+      // Add the new message we just typed
+      conversationHistory.push({ role: 'user', content: newUserMessage.text });
+
+      // 3. Call Bytez API
+      const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': BYTEZ_API_KEY // Bytez uses the raw key in Authorization header
+        },
+        body: JSON.stringify({
+          model: MODEL_ID,
+          messages: [
+            // System prompt to give the AI a personality
+            { 
+              role: "system", 
+              content: `You are acting as ${profile.name}, who is the user's ${profile.relation}. 
+                        Your personality is: ${profile.topic}. 
+                        Keep responses short, warm, and encouraging. 
+                        Use emojis occasionally.` 
+            },
+            ...conversationHistory
+          ],
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error?.message || 'Failed to get response from Bytez');
+      }
+
+      // 4. Handle AI Response
+      const aiText = data.choices?.[0]?.message?.content || "I didn't catch that, could you say it again?";
+      
       const aiResponse: Message = {
         id: (Date.now() + 1).toString(),
-        text: `I heard you say "${newUserMessage.text}"! I am currently a demo, but soon I will be smart!`,
+        text: aiText,
         sender: 'ai',
         timestamp: new Date(),
       };
+
       setMessages((prev) => [...prev, aiResponse]);
+
+    } catch (error) {
+      console.error('[ChatFeature] Error calling API:', error);
+      // Show error in chat bubble so user knows it failed
+      setMessages((prev) => [...prev, {
+        id: Date.now().toString(),
+        text: "😔 Oops! I'm having trouble connecting to my brain right now. Please try again.",
+        sender: 'ai',
+        timestamp: new Date()
+      }]);
+    } finally {
       setIsTyping(false);
-    }, 1500);
+    }
   };
 
   return (
@@ -93,7 +156,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
                   : 'bg-slate-800 border border-slate-700 text-gray-100 rounded-tl-sm'
               }`}
             >
-              <p className="leading-relaxed">{msg.text}</p>
+              <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
               <p className={`text-[10px] mt-2 opacity-50 ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
@@ -136,7 +199,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
                 : 'bg-slate-700 text-slate-500 cursor-not-allowed'
             }`}
           >
-            {/* Send Icon */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5">
               <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
             </svg>
