@@ -35,6 +35,9 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isTyping]);
+  
+  // Add this inside ChatFeature component
+  console.log("DEBUG: API Key is:", import.meta.env.VITE_BYTEZ_API_KEY ? "Present" : "MISSING");
 
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
