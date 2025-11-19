@@ -305,7 +305,6 @@ function App() {
       )}
     </div>
   );
-}
 
 // Helper functions for default values
 function getDefaultAvatar(relation: string): string {
