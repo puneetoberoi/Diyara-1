@@ -15,7 +15,8 @@ interface Message {
 
 // Bytez API Configuration
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY;
-const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct'; // You can change this model later
+// Try this model if Llama-3 is failing
+const MODEL_ID = 'mistralai/Mistral-7B-Instruct-v0.1';
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   // Initial greeting message
