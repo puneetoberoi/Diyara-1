@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from './AuthContext';
 import { db } from './supabase';
 import AuthScreen from './components/AuthScreen';
@@ -128,56 +128,36 @@ function App() {
     }
   };
 
+  // Placeholder for features not yet implemented
+  const FeaturePlaceholder = ({ featureName, icon }: { featureName: string; icon: string }) => (
+    <div className="min-h-full flex items-center justify-center p-8 bg-gradient-to-br from-purple-900/50 to-slate-900/50">
+      <div className="max-w-md w-full text-center">
+        <div className="text-8xl mb-6 animate-bounce">{icon}</div>
+        <h2 className="text-3xl font-bold text-white mb-4">{featureName}</h2>
+        <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-6 mb-6">
+          <p className="text-yellow-300 text-lg mb-2">🚧 Coming Soon!</p>
+          <p className="text-gray-300 text-sm">
+            This feature is in development. Check back soon!
+          </p>
+        </div>
+        <div className="bg-slate-800/50 border border-slate-600 rounded-xl p-4 text-left space-y-2">
+          <p className="text-green-400 text-sm flex items-center gap-2">
+            <span>✅</span> Chat working
+          </p>
+          <p className="text-green-400 text-sm flex items-center gap-2">
+            <span>✅</span> Image generation working
+          </p>
+          <p className="text-yellow-400 text-sm flex items-center gap-2">
+            <span>⏳</span> More features coming!
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+
   // Render feature based on active tab
   const renderFeature = () => {
     if (!selectedProfile || !user) return null;
-  
-    switch (activeTab) {
-      case 'chat':
-        return <ChatFeature userId={user.id} profile={selectedProfile} />;
-      case 'create':
-        return <CreateFeature userId={user.id} profile={selectedProfile} />;
-      case 'galaxy':
-        return <GalaxyView userId={user.id} profile={selectedProfile} />;
-      case 'journal':
-        return <AudioJournalFeature userId={user.id} profile={selectedProfile} />;
-      case 'talk':
-        return <LiveTalkFeature userId={user.id} profile={selectedProfile} />;
-      case 'gallery':
-        return <GalleryFeature userId={user.id} profile={selectedProfile} />;
-      case 'garden':
-        return <GardenFeature userId={user.id} profile={selectedProfile} />;
-      default:
-        return null;
-    }
-};
-
-    // Placeholder for features not yet implemented
-    const FeaturePlaceholder = ({ featureName, icon }: { featureName: string; icon: string }) => (
-      <div className="min-h-full flex items-center justify-center p-8 bg-gradient-to-br from-purple-900/50 to-slate-900/50">
-        <div className="max-w-md w-full text-center">
-          <div className="text-8xl mb-6 animate-bounce">{icon}</div>
-          <h2 className="text-3xl font-bold text-white mb-4">{featureName}</h2>
-          <div className="bg-yellow-500/20 border border-yellow-500/50 rounded-xl p-6 mb-6">
-            <p className="text-yellow-300 text-lg mb-2">🚧 Coming Soon!</p>
-            <p className="text-gray-300 text-sm">
-              This feature is in development. Check back soon!
-            </p>
-          </div>
-          <div className="bg-slate-800/50 border border-slate-600 rounded-xl p-4 text-left space-y-2">
-            <p className="text-green-400 text-sm flex items-center gap-2">
-              <span>✅</span> Chat working
-            </p>
-            <p className="text-green-400 text-sm flex items-center gap-2">
-              <span>✅</span> Image generation working
-            </p>
-            <p className="text-yellow-400 text-sm flex items-center gap-2">
-              <span>⏳</span> More features coming!
-            </p>
-          </div>
-        </div>
-      </div>
-    );
 
     switch (activeTab) {
       case 'chat':
@@ -190,6 +170,10 @@ function App() {
         return <FeaturePlaceholder featureName="Audio Journal" icon="🎙️" />;
       case 'talk':
         return <FeaturePlaceholder featureName="Live Talk" icon="🗣️" />;
+      case 'gallery':
+        return <FeaturePlaceholder featureName="Gallery" icon="🖼️" />;
+      case 'garden':
+        return <FeaturePlaceholder featureName="Garden" icon="🌻" />;
       default:
         return null;
     }
@@ -305,6 +289,7 @@ function App() {
       )}
     </div>
   );
+} // <--- THIS IS THE CORRECT PLACE TO CLOSE THE APP FUNCTION
 
 // Helper functions for default values
 function getDefaultAvatar(relation: string): string {
