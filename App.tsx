@@ -131,6 +131,26 @@ function App() {
   // Render feature based on active tab
   const renderFeature = () => {
     if (!selectedProfile || !user) return null;
+  
+    switch (activeTab) {
+      case 'chat':
+        return <ChatFeature userId={user.id} profile={selectedProfile} />;
+      case 'create':
+        return <CreateFeature userId={user.id} profile={selectedProfile} />;
+      case 'galaxy':
+        return <GalaxyView userId={user.id} profile={selectedProfile} />;
+      case 'journal':
+        return <AudioJournalFeature userId={user.id} profile={selectedProfile} />;
+      case 'talk':
+        return <LiveTalkFeature userId={user.id} profile={selectedProfile} />;
+      case 'gallery':
+        return <GalleryFeature userId={user.id} profile={selectedProfile} />;
+      case 'garden':
+        return <GardenFeature userId={user.id} profile={selectedProfile} />;
+      default:
+        return null;
+    }
+};
 
     // Placeholder for features not yet implemented
     const FeaturePlaceholder = ({ featureName, icon }: { featureName: string; icon: string }) => (
