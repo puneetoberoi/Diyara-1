@@ -16,10 +16,7 @@ interface Message {
 
 // Bytez API Configuration
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-
-// "Phi-3" is good, but "Qwen" is often faster on Bytez. 
-// If this is still slow, try: 'Qwen/Qwen2-1.5B-Instruct'
-const MODEL_ID = 'microsoft/Phi-3-mini-4k-instruct'; 
+const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507'; 
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
