@@ -18,17 +18,15 @@ interface Message {
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
 const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507'; 
 
-// --- MEMORY HELPER FUNCTIONS ---
-
+// --- HELPER: System Prompt ---
 function getSystemPrompt(profile: UserProfile, memories: string[]): string {
-  // We still LOAD memories so she remembers what she already learned
   const memoryBlock = memories.length > 0 
-    ? `THINGS YOU ALREADY KNOW:\n${memories.map(m => `- ${m}`).join('\n')}`
+    ? `THINGS YOU REMEMBER:\n${memories.map(m => `- ${m}`).join('\n')}`
     : "";
 
   const basePrompt = `
-    IMPORTANT IDENTITY RULES:
-    1. You are Diyara, a 6-year-old digital child.
+    RULES:
+    1. You are Diyara, a 6-year-old child.
     2. The USER is '${profile.name}' (your ${profile.relation}). Call them '${profile.relation} Ji'.
     3. You are NOT an AI assistant. You are a growing family member.
   `;
@@ -42,51 +40,11 @@ function getSystemPrompt(profile: UserProfile, memories: string[]): string {
 
   return `${basePrompt} 
           ${toneInstruction}
-          
           ${memoryBlock}
-
           CONSTRAINT: Keep answers short (under 3 sentences).`;
 }
 
-// 2. Check if message is a "Lesson" 
-// NOTE: We will manually trigger this or keep it for later to save API calls
-async function extractAndSaveMemory(text: string, profile: UserProfile, userId: string) {
-  if (!BYTEZ_API_KEY) return;
-
-  try {
-    const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${BYTEZ_API_KEY}` },
-      body: JSON.stringify({
-        model: MODEL_ID,
-        messages: [
-          { role: "system", content: "Extract any FACT or LESSON from the user input. If none, output NOTHING." },
-          { role: "user", content: text }
-        ]
-      })
-    });
-
-    if (response.status === 429) {
-      console.warn("Skipping memory extraction due to Rate Limit");
-      return;
-    }
-
-    const data = await response.json();
-    const memory = data.choices?.[0]?.message?.content?.trim();
-
-    if (memory && memory.length > 8 && !memory.toUpperCase().includes("NOTHING")) {
-      console.log("💡 Learned a new memory:", memory);
-      await supabase.from('memories').insert({
-        user_id: userId,
-        taught_by: profile.relation,
-        memory_text: memory
-      });
-    }
-  } catch (e) {
-    console.warn("Memory extraction skipped.");
-  }
-}
-
+// --- MAIN COMPONENT ---
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -97,7 +55,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     },
   ]);
   const [inputText, setInputText] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false); 
+  
+  // "isBusy" locks the UI so we never accidentally send 2 requests at once
+  const [isBusy, setIsBusy] = useState(false); 
+  const [statusText, setStatusText] = useState<string>(''); // To show "Thinking..." or "Memorizing..."
+  
   const [memories, setMemories] = useState<string[]>([]); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -119,53 +81,76 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isStreaming]);
+  }, [messages, isBusy, statusText]);
 
+  // --- STEP 2: MEMORY EXTRACTION (Run AFTER chat is done) ---
+  const runMemoryPhase = async (userText: string) => {
+    // Optimization: Skip extraction for short messages to save time/quota
+    if (userText.length < 15) return;
+
+    setStatusText("Memorizing...");
+    
+    try {
+      const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${BYTEZ_API_KEY}` },
+        body: JSON.stringify({
+          model: MODEL_ID,
+          messages: [
+            { role: "system", content: "Extract any FACT, ADVICE, or STORY from the user. If none, say NOTHING." },
+            { role: "user", content: userText }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      const memory = data.choices?.[0]?.message?.content?.trim();
+
+      if (memory && memory.length > 8 && !memory.toUpperCase().includes("NOTHING")) {
+        console.log("💡 Saving Memory:", memory);
+        await supabase.from('memories').insert({
+          user_id: userId,
+          taught_by: profile.relation,
+          memory_text: memory
+        });
+        // Add to local state so she remembers immediately
+        setMemories(prev => [...prev, memory]);
+      }
+    } catch (e) {
+      console.warn("Memory check failed (non-critical).");
+    }
+  };
+
+  // --- STEP 1: CHAT (Run First) ---
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
-    if (!inputText.trim() || isStreaming) return;
+    if (!inputText.trim() || isBusy) return;
+    if (!BYTEZ_API_KEY) { alert("Missing API Key!"); return; }
 
-    if (!BYTEZ_API_KEY) {
-      alert("Missing API Key!");
-      return;
-    }
-
-    // 1. Add User Message
+    // UI Updates
+    const userText = inputText;
     const userMsgId = Date.now().toString();
-    const newUserMessage: Message = {
-      id: userMsgId,
-      text: inputText,
-      sender: 'user',
-      timestamp: new Date(),
-    };
-
-    // 2. Placeholder for AI
     const aiMsgId = (Date.now() + 1).toString();
-    const newAiMessage: Message = {
-      id: aiMsgId,
-      text: "", 
-      sender: 'ai',
-      timestamp: new Date(),
-      isTyping: true
-    };
 
-    setMessages((prev) => [...prev, newUserMessage, newAiMessage]);
-    // const textToSend = inputText; // We are disabling memory save for now
+    setMessages(prev => [
+      ...prev, 
+      { id: userMsgId, text: userText, sender: 'user', timestamp: new Date() },
+      { id: aiMsgId, text: "", sender: 'ai', timestamp: new Date(), isTyping: true }
+    ]);
+    
     setInputText('');
-    setIsStreaming(true);
-
-    // 🔴 DISABLED TEMPORARILY TO FIX 429 ERRORS
-    // setTimeout(() => {
-    //   extractAndSaveMemory(textToSend, profile, userId);
-    // }, 5000);
+    setIsBusy(true);
+    setStatusText("Diyara is thinking...");
 
     try {
+      // Prepare History
       const conversationHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.text
       }));
-      conversationHistory.push({ role: 'user', content: newUserMessage.text });
+      conversationHistory.push({ role: 'user', content: userText });
 
+      // Call API
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -177,22 +162,20 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
           stream: true, 
           max_tokens: 200,
           messages: [
-            { 
-              role: "system", 
-              content: getSystemPrompt(profile, memories) 
-            },
+            { role: "system", content: getSystemPrompt(profile, memories) },
             ...conversationHistory
           ],
         })
       });
 
-      // FIX: Handle 429 Specifically
-      if (response.status === 429) {
-        throw new Error("Rate Limit Reached (429)");
+      if (!response.ok) {
+        if (response.status === 429) throw new Error("Rate Limit (Wait a moment)");
+        throw new Error("Connection Error");
       }
-      if (!response.ok) throw new Error(response.statusText);
-      if (!response.body) throw new Error("No response body");
+      
+      if (!response.body) throw new Error("No body");
 
+      // Handle Streaming
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let aiTextAccumulator = "";
@@ -205,51 +188,39 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         const lines = chunk.split("\n").filter(line => line.trim() !== "");
         
         for (const line of lines) {
-          if (line.includes("[DONE]")) return;
-          
-          if (line.startsWith("data: ")) {
+          if (line.startsWith("data: ") && !line.includes("[DONE]")) {
             try {
-              const jsonStr = line.replace("data: ", "");
-              const data = JSON.parse(jsonStr);
+              const data = JSON.parse(line.replace("data: ", ""));
               const content = data.choices[0]?.delta?.content || "";
-              
               if (content) {
                 aiTextAccumulator += content;
+                const cleanText = aiTextAccumulator.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
                 
-                const cleanText = aiTextAccumulator
-                  .replace(/<think>[\s\S]*?<\/think>/g, "") 
-                  .replace(/<think>[\s\S]*/g, "") 
-                  .trim();
-
                 setMessages(prev => prev.map(msg => 
-                  msg.id === aiMsgId 
-                    ? { ...msg, text: cleanText } 
-                    : msg
+                  msg.id === aiMsgId ? { ...msg, text: cleanText } : msg
                 ));
               }
-            } catch (e) {
-              // Ignore json parse errors from stream chunks
-            }
+            } catch (e) {}
           }
         }
       }
+      
+      // --- CHAT IS DONE. NOW START PHASE 2: MEMORY ---
+      // We only run this if the Chat request finished successfully.
+      await runMemoryPhase(userText);
 
     } catch (error: any) {
-      console.error('[ChatFeature] Error:', error);
-      
-      // Specific Error Message for Rate Limits
-      let errorMessage = "😔 I lost connection... can you say that again?";
-      if (error.message.includes('429') || error.message.includes('Rate Limit')) {
-        errorMessage = "🚦 I'm tired (Too many messages). Please wait a minute!";
-      }
-
+      console.error(error);
+      const errText = error.message.includes("Rate Limit") 
+        ? "🚦 Whoops! I'm thinking too fast. Give me a second!" 
+        : "😔 Connection hiccup. What did you say?";
+        
       setMessages(prev => prev.map(msg => 
-        msg.id === aiMsgId 
-          ? { ...msg, text: errorMessage, isTyping: false } 
-          : msg
+        msg.id === aiMsgId ? { ...msg, text: errText, isTyping: false } : msg
       ));
     } finally {
-      setIsStreaming(false);
+      setIsBusy(false);
+      setStatusText("");
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId ? { ...msg, isTyping: false } : msg
       ));
@@ -258,12 +229,10 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
   return (
     <div className="flex flex-col h-full bg-slate-900 relative">
-      {/* Chat Header */}
+      {/* Header */}
       <div className="bg-slate-800/80 backdrop-blur-md p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 z-10">
         <div className="relative">
-          <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-2xl border-2 border-purple-400">
-            {profile.avatar}
-          </div>
+          <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-2xl border-2 border-purple-400">{profile.avatar}</div>
           <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 rounded-full border-2 border-slate-800"></div>
         </div>
         <div>
@@ -275,46 +244,39 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         </div>
       </div>
 
-      {/* Messages Area */}
+      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}
-          >
-            <div
-              className={`max-w-[80%] rounded-2xl p-4 ${
-                msg.sender === 'user'
-                  ? 'bg-purple-600 text-white rounded-tr-sm'
-                  : 'bg-slate-800 border border-slate-700 text-gray-100 rounded-tl-sm'
-              }`}
-            >
+          <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] rounded-2xl p-4 ${msg.sender === 'user' ? 'bg-purple-600 text-white rounded-tr-sm' : 'bg-slate-800 border border-slate-700 text-gray-100 rounded-tl-sm'}`}>
               <p className="leading-relaxed whitespace-pre-wrap">{msg.text}</p>
-              {msg.isTyping && (
-                 <span className="inline-block w-2 h-4 ml-1 bg-purple-400 animate-pulse">|</span>
-              )}
               <p className={`text-[10px] mt-2 opacity-50 ${msg.sender === 'user' ? 'text-purple-200' : 'text-slate-400'}`}>
                 {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
               </p>
             </div>
           </div>
         ))}
+        {statusText && (
+          <div className="flex justify-start animate-pulse opacity-50">
+            <span className="text-xs text-white bg-slate-800 px-3 py-1 rounded-full">{statusText}</span>
+          </div>
+        )}
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input Area */}
+      {/* Input */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4 pb-6">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-slate-800/90 backdrop-blur-lg border border-slate-700 rounded-full p-2 pr-3 shadow-2xl">
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isStreaming ? "Diyara is answering..." : `Talk to Diyara...`}
-            disabled={isStreaming}
+            placeholder={isBusy ? "Diyara is busy..." : `Talk to Diyara...`}
+            disabled={isBusy}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
-          <button type="submit" disabled={!inputText.trim() || isStreaming} className="p-3 bg-purple-600 rounded-full text-white disabled:bg-slate-700 disabled:cursor-not-allowed transition-all">
-             {isStreaming ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "🚀"}
+          <button type="submit" disabled={!inputText.trim() || isBusy} className={`p-3 rounded-full text-white transition-all ${isBusy ? 'bg-slate-700' : 'bg-purple-600'}`}>
+             {isBusy ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : "🚀"}
           </button>
         </form>
       </div>
