@@ -55,11 +55,8 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     },
   ]);
   const [inputText, setInputText] = useState('');
-  
-  // "isBusy" locks the UI so we never accidentally send 2 requests at once
   const [isBusy, setIsBusy] = useState(false); 
-  const [statusText, setStatusText] = useState<string>(''); // To show "Thinking..." or "Memorizing..."
-  
+  const [statusText, setStatusText] = useState<string>(''); 
   const [memories, setMemories] = useState<string[]>([]); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -70,6 +67,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         .from('memories')
         .select('memory_text')
         .eq('user_id', userId)
+        .order('created_at', { ascending: false }) // Get newest first
         .limit(10); 
 
       if (data) {
@@ -83,11 +81,15 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isBusy, statusText]);
 
-  // --- STEP 2: MEMORY EXTRACTION (Run AFTER chat is done) ---
+  // --- STEP 2: MEMORY EXTRACTION ---
   const runMemoryPhase = async (userText: string) => {
-    // Optimization: Skip extraction for short messages to save time/quota
-    if (userText.length < 15) return;
+    // Validation: Skip very short messages
+    if (userText.length < 10) {
+      console.log("Skipping memory (text too short)");
+      return;
+    }
 
+    console.log("🧠 Starting memory check for:", userText); // <--- DEBUG LOG
     setStatusText("Memorizing...");
     
     try {
@@ -97,7 +99,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         body: JSON.stringify({
           model: MODEL_ID,
           messages: [
-            { role: "system", content: "Extract any FACT, ADVICE, or STORY from the user. If none, say NOTHING." },
+            { role: "system", content: "Extract the core FACT or PREFERENCE from the user's text. If there is no clear fact to remember, output exactly the word NOTHING." },
             { role: "user", content: userText }
           ]
         })
@@ -106,28 +108,28 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       const data = await response.json();
       const memory = data.choices?.[0]?.message?.content?.trim();
 
-      if (memory && memory.length > 8 && !memory.toUpperCase().includes("NOTHING")) {
+      if (memory && memory.length > 5 && !memory.toUpperCase().includes("NOTHING")) {
         console.log("💡 Saving Memory:", memory);
         await supabase.from('memories').insert({
           user_id: userId,
           taught_by: profile.relation,
           memory_text: memory
         });
-        // Add to local state so she remembers immediately
-        setMemories(prev => [...prev, memory]);
+        setMemories(prev => [memory, ...prev]);
+      } else {
+        console.log("No new memory found in text.");
       }
     } catch (e) {
-      console.warn("Memory check failed (non-critical).");
+      console.warn("Memory check failed:", e);
     }
   };
 
-  // --- STEP 1: CHAT (Run First) ---
+  // --- STEP 1: CHAT ---
   const handleSendMessage = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!inputText.trim() || isBusy) return;
     if (!BYTEZ_API_KEY) { alert("Missing API Key!"); return; }
 
-    // UI Updates
     const userText = inputText;
     const userMsgId = Date.now().toString();
     const aiMsgId = (Date.now() + 1).toString();
@@ -143,14 +145,12 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     setStatusText("Diyara is thinking...");
 
     try {
-      // Prepare History
       const conversationHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
         content: msg.text
       }));
       conversationHistory.push({ role: 'user', content: userText });
 
-      // Call API
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -168,14 +168,9 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         })
       });
 
-      if (!response.ok) {
-        if (response.status === 429) throw new Error("Rate Limit (Wait a moment)");
-        throw new Error("Connection Error");
-      }
-      
+      if (!response.ok) throw new Error("Connection Error");
       if (!response.body) throw new Error("No body");
 
-      // Handle Streaming
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let aiTextAccumulator = "";
@@ -195,7 +190,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
               if (content) {
                 aiTextAccumulator += content;
                 const cleanText = aiTextAccumulator.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
-                
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMsgId ? { ...msg, text: cleanText } : msg
                 ));
@@ -205,18 +199,19 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         }
       }
       
-      // --- CHAT IS DONE. NOW START PHASE 2: MEMORY ---
-      // We only run this if the Chat request finished successfully.
+      // --- COOL DOWN PERIOD ---
+      // Wait 3 seconds to let the first connection fully close
+      // This prevents the "429 Rate Limit" or "Protocol Error"
+      console.log("⏳ Cooling down connection...");
+      await new Promise(resolve => setTimeout(resolve, 3000));
+
+      // --- START MEMORY PHASE ---
       await runMemoryPhase(userText);
 
     } catch (error: any) {
       console.error(error);
-      const errText = error.message.includes("Rate Limit") 
-        ? "🚦 Whoops! I'm thinking too fast. Give me a second!" 
-        : "😔 Connection hiccup. What did you say?";
-        
       setMessages(prev => prev.map(msg => 
-        msg.id === aiMsgId ? { ...msg, text: errText, isTyping: false } : msg
+        msg.id === aiMsgId ? { ...msg, text: "😔 Connection hiccup. What did you say?", isTyping: false } : msg
       ));
     } finally {
       setIsBusy(false);
@@ -229,7 +224,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
   return (
     <div className="flex flex-col h-full bg-slate-900 relative">
-      {/* Header */}
       <div className="bg-slate-800/80 backdrop-blur-md p-4 border-b border-white/10 flex items-center gap-4 sticky top-0 z-10">
         <div className="relative">
           <div className="w-12 h-12 rounded-full bg-purple-600 flex items-center justify-center text-2xl border-2 border-purple-400">{profile.avatar}</div>
@@ -244,7 +238,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         </div>
       </div>
 
-      {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4 pb-24">
         {messages.map((msg) => (
           <div key={msg.id} className={`flex ${msg.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
@@ -264,14 +257,13 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Input */}
       <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent p-4 pb-6">
         <form onSubmit={handleSendMessage} className="flex items-center gap-2 bg-slate-800/90 backdrop-blur-lg border border-slate-700 rounded-full p-2 pr-3 shadow-2xl">
           <input
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isBusy ? "Diyara is busy..." : `Talk to Diyara...`}
+            placeholder={isBusy ? statusText || "Wait..." : `Talk to Diyara...`}
             disabled={isBusy}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
