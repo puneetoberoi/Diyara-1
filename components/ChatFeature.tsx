@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '../types';
-import { db } from '../supabase'; // Ensure this import points to your supabase client file
-import { supabase } from '../supabase'; // We need the raw client for custom inserts
+import { supabase } from '../supabase';
 
 interface ChatFeatureProps {
   userId: string;
@@ -21,23 +20,21 @@ const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507';
 
 // --- MEMORY HELPER FUNCTIONS ---
 
-// 1. Generate the System Prompt with Memories included
 function getSystemPrompt(profile: UserProfile, memories: string[]): string {
-  // Convert memories array to a text block
   const memoryBlock = memories.length > 0 
-    ? `THINGS YOU HAVE LEARNED IN THE PAST:\n${memories.map(m => `- ${m}`).join('\n')}`
-    : "You are learning new things every day.";
+    ? `THINGS YOU HAVE LEARNED FROM THE FAMILY:\n${memories.map(m => `- ${m}`).join('\n')}`
+    : "";
 
   const basePrompt = `
     IMPORTANT IDENTITY RULES:
     1. You are Diyara, a 6-year-old digital child.
     2. The USER is '${profile.name}' (your ${profile.relation}). Call them '${profile.relation} Ji'.
-    3. You are NOT an AI assistant. You are a family member growing up.
+    3. You are NOT an AI assistant. You are a growing family member.
   `;
   
   let toneInstruction = "";
   if (['Daada Ji', 'Daadi Ji', 'Nani Ji', 'Nana Ji'].includes(profile.relation)) {
-    toneInstruction = `Speak with EXTREME respect and love. You look up to them for wisdom.`;
+    toneInstruction = `Speak with EXTREME respect. You are their grandchild. Listen to their wisdom.`;
   } else {
     toneInstruction = `Speak with sweetness, curiosity, and love.`;
   }
@@ -47,15 +44,14 @@ function getSystemPrompt(profile: UserProfile, memories: string[]): string {
           
           ${memoryBlock}
 
-          INSTRUCTION: If the user asks what you know or have learned, refer to the 'THINGS YOU HAVE LEARNED' list above.
+          INSTRUCTION: If the user teaches you something, say "I will remember that!".
           CONSTRAINT: Keep answers short (under 3 sentences).`;
 }
 
-// 2. Check if message is a "Lesson" and save it
+// 2. Check if message is a "Lesson" (Now more robust)
 async function extractAndSaveMemory(text: string, profile: UserProfile, userId: string) {
   if (!BYTEZ_API_KEY) return;
 
-  // We ask a "Shadow AI" if this message contains a fact worth remembering
   try {
     const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
       method: 'POST',
@@ -63,7 +59,7 @@ async function extractAndSaveMemory(text: string, profile: UserProfile, userId: 
       body: JSON.stringify({
         model: MODEL_ID,
         messages: [
-          { role: "system", content: "Analyze the user's message. If it contains advice, a fact, a story, or a lesson for a child, output JUST the lesson. If it is just 'hello' or 'how are you', output NOTHING." },
+          { role: "system", content: "Analyze the user's message. If it contains a FACT, ADVICE, or STORY worth remembering for a child, output JUST the lesson text. If it is casual chat like 'hello' or 'good', output exactly the word NOTHING." },
           { role: "user", content: text }
         ]
       })
@@ -72,11 +68,10 @@ async function extractAndSaveMemory(text: string, profile: UserProfile, userId: 
     const data = await response.json();
     const memory = data.choices?.[0]?.message?.content?.trim();
 
-    // If the AI found a lesson (and it's not empty or "NOTHING")
-    if (memory && memory.length > 5 && !memory.includes("NOTHING")) {
+    // Logic Fix: Only save if it's not "NOTHING" and actually has length
+    if (memory && memory.length > 8 && !memory.toUpperCase().includes("NOTHING")) {
       console.log("💡 Learned a new memory:", memory);
       
-      // Save to Supabase
       await supabase.from('memories').insert({
         user_id: userId,
         taught_by: profile.relation,
@@ -84,7 +79,8 @@ async function extractAndSaveMemory(text: string, profile: UserProfile, userId: 
       });
     }
   } catch (e) {
-    console.error("Memory extraction failed", e);
+    // Silently fail memory extraction so it doesn't break the app
+    console.warn("Memory extraction skipped this time.");
   }
 }
 
@@ -99,7 +95,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   ]);
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false); 
-  const [memories, setMemories] = useState<string[]>([]); // Local state for memories
+  const [memories, setMemories] = useState<string[]>([]); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Load Memories on Mount
@@ -109,7 +105,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         .from('memories')
         .select('memory_text')
         .eq('user_id', userId)
-        .limit(5); // Get top 5 recent memories to keep context light
+        .limit(10); 
 
       if (data) {
         setMemories(data.map(m => m.memory_text));
@@ -151,11 +147,14 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     };
 
     setMessages((prev) => [...prev, newUserMessage, newAiMessage]);
+    const textToSend = inputText; // capture text for the delay function
     setInputText('');
     setIsStreaming(true);
 
-    // 3. Fire-and-forget Memory Extraction (Don't wait for it)
-    extractAndSaveMemory(inputText, profile, userId);
+    // FIX: Delay Memory Extraction by 5 seconds to prevent Network Collision
+    setTimeout(() => {
+      extractAndSaveMemory(textToSend, profile, userId);
+    }, 5000);
 
     try {
       const conversationHistory = messages.map(msg => ({
@@ -177,7 +176,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
           messages: [
             { 
               role: "system", 
-              // FIX: Pass loaded memories into the prompt
               content: getSystemPrompt(profile, memories) 
             },
             ...conversationHistory
@@ -211,7 +209,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
               if (content) {
                 aiTextAccumulator += content;
                 
-                // Clean up Thinking tags
                 const cleanText = aiTextAccumulator
                   .replace(/<think>[\s\S]*?<\/think>/g, "") 
                   .replace(/<think>[\s\S]*/g, "") 
@@ -224,7 +221,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
                 ));
               }
             } catch (e) {
-              console.error("Error parsing stream chunk", e);
+              // Ignore json parse errors from stream chunks
             }
           }
         }
@@ -234,7 +231,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       console.error('[ChatFeature] Error:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId 
-          ? { ...msg, text: "😔 My brain is tired...", isTyping: false } 
+          ? { ...msg, text: "😔 I lost connection... can you say that again?", isTyping: false } 
           : msg
       ));
     } finally {
