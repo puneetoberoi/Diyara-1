@@ -17,7 +17,7 @@ interface Message {
 // Bytez API Configuration
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
 // Using Qwen as you requested, or fallback to Phi-3 for stability
-const MODEL_ID = 'Qwen/Qwen3-0.6B'; 
+const MODEL_ID = 'deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B'; 
 
 // --- HELPER: DYNAMIC PERSONA GENERATOR ---
 function getSystemPrompt(profile: UserProfile): string {
