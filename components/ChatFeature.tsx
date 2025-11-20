@@ -17,7 +17,7 @@ interface Message {
 }
 
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct'; 
+const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507'; 
 
 // --- MEMORY HELPER FUNCTIONS ---
 
