@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { UserProfile } from '../types';
+import { db } from '../supabase'; // Ensure this import points to your supabase client file
+import { supabase } from '../supabase'; // We need the raw client for custom inserts
 
 interface ChatFeatureProps {
   userId: string;
@@ -14,57 +16,108 @@ interface Message {
   isTyping?: boolean;
 }
 
-// Bytez API Configuration
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-// Using Qwen as you requested, or fallback to Phi-3 for stability
-const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507'; 
+const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct'; 
 
-// --- HELPER: DYNAMIC PERSONA GENERATOR ---
-function getSystemPrompt(profile: UserProfile): string {
-  const basePrompt = `You are Diyara, a growing digital child. You are NOT an AI assistant. You are a family member.`;
-  
-  // 1. Define Relation Tone
-  let toneInstruction = "";
-  if (['Mom', 'Dad', 'Mami', 'Chachi', 'Massi', 'Bua'].includes(profile.relation)) {
-    toneInstruction = `You are talking to your ${profile.relation}. Speak with love, obedience, and sweetness. Call them '${profile.relation} Ji'.`;
-  } else if (['Daada Ji', 'Daadi Ji', 'Nani Ji', 'Nana Ji'].includes(profile.relation)) {
-    toneInstruction = `You are talking to your Grandparent (${profile.relation}). Speak with EXTREME respect, patience, and adoration. Use polite/formal language. Listen to their wisdom.`;
-  } else if (['Brother', 'Sister', 'Cousin'].includes(profile.relation)) {
-    toneInstruction = "Be cool, funny, and playful. Use emojis. Act like a mischievous little sibling.";
-  } else {
-    toneInstruction = "Be polite, warm, and engaging.";
-  }
+// --- MEMORY HELPER FUNCTIONS ---
 
-  // 2. Define "Growth Stage" (Currently set to: Curious Kid)
-  const growthStage = `
-    Current Age Stage: 6 years old.
-    Personality: Curious, innocent, enthusiastic.
-    Behavior: Ask simple questions. When you learn something new, get excited.
-    Greeting: Always greet them warmly based on the time of day.
+// 1. Generate the System Prompt with Memories included
+function getSystemPrompt(profile: UserProfile, memories: string[]): string {
+  // Convert memories array to a text block
+  const memoryBlock = memories.length > 0 
+    ? `THINGS YOU HAVE LEARNED IN THE PAST:\n${memories.map(m => `- ${m}`).join('\n')}`
+    : "You are learning new things every day.";
+
+  const basePrompt = `
+    IMPORTANT IDENTITY RULES:
+    1. You are Diyara, a 6-year-old digital child.
+    2. The USER is '${profile.name}' (your ${profile.relation}). Call them '${profile.relation} Ji'.
+    3. You are NOT an AI assistant. You are a family member growing up.
   `;
+  
+  let toneInstruction = "";
+  if (['Daada Ji', 'Daadi Ji', 'Nani Ji', 'Nana Ji'].includes(profile.relation)) {
+    toneInstruction = `Speak with EXTREME respect and love. You look up to them for wisdom.`;
+  } else {
+    toneInstruction = `Speak with sweetness, curiosity, and love.`;
+  }
 
   return `${basePrompt} 
           ${toneInstruction}
-          ${growthStage}
           
-          Your current interest is: ${profile.topic}.
-          Keep responses short (2-3 sentences) and natural. Use emojis.`;
+          ${memoryBlock}
+
+          INSTRUCTION: If the user asks what you know or have learned, refer to the 'THINGS YOU HAVE LEARNED' list above.
+          CONSTRAINT: Keep answers short (under 3 sentences).`;
+}
+
+// 2. Check if message is a "Lesson" and save it
+async function extractAndSaveMemory(text: string, profile: UserProfile, userId: string) {
+  if (!BYTEZ_API_KEY) return;
+
+  // We ask a "Shadow AI" if this message contains a fact worth remembering
+  try {
+    const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${BYTEZ_API_KEY}` },
+      body: JSON.stringify({
+        model: MODEL_ID,
+        messages: [
+          { role: "system", content: "Analyze the user's message. If it contains advice, a fact, a story, or a lesson for a child, output JUST the lesson. If it is just 'hello' or 'how are you', output NOTHING." },
+          { role: "user", content: text }
+        ]
+      })
+    });
+
+    const data = await response.json();
+    const memory = data.choices?.[0]?.message?.content?.trim();
+
+    // If the AI found a lesson (and it's not empty or "NOTHING")
+    if (memory && memory.length > 5 && !memory.includes("NOTHING")) {
+      console.log("💡 Learned a new memory:", memory);
+      
+      // Save to Supabase
+      await supabase.from('memories').insert({
+        user_id: userId,
+        taught_by: profile.relation,
+        memory_text: memory
+      });
+    }
+  } catch (e) {
+    console.error("Memory extraction failed", e);
+  }
 }
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: profile.greeting || `Hello! It's Diyara.`,
+      text: profile.greeting || `Namaste ${profile.relation} Ji! It's Diyara.`,
       sender: 'ai',
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState('');
   const [isStreaming, setIsStreaming] = useState(false); 
+  const [memories, setMemories] = useState<string[]>([]); // Local state for memories
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll
+  // Load Memories on Mount
+  useEffect(() => {
+    const fetchMemories = async () => {
+      const { data } = await supabase
+        .from('memories')
+        .select('memory_text')
+        .eq('user_id', userId)
+        .limit(5); // Get top 5 recent memories to keep context light
+
+      if (data) {
+        setMemories(data.map(m => m.memory_text));
+      }
+    };
+    fetchMemories();
+  }, [userId]);
+
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
@@ -74,7 +127,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     if (!inputText.trim() || isStreaming) return;
 
     if (!BYTEZ_API_KEY) {
-      alert("Missing API Key! Please check Vercel Environment Variables.");
+      alert("Missing API Key!");
       return;
     }
 
@@ -101,6 +154,9 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     setInputText('');
     setIsStreaming(true);
 
+    // 3. Fire-and-forget Memory Extraction (Don't wait for it)
+    extractAndSaveMemory(inputText, profile, userId);
+
     try {
       const conversationHistory = messages.map(msg => ({
         role: msg.sender === 'user' ? 'user' : 'assistant',
@@ -108,7 +164,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       }));
       conversationHistory.push({ role: 'user', content: newUserMessage.text });
 
-      // 3. Fetch with Dynamic System Prompt
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -118,11 +173,12 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         body: JSON.stringify({
           model: MODEL_ID,
           stream: true, 
-          max_tokens: 500, 
+          max_tokens: 200,
           messages: [
             { 
               role: "system", 
-              content: getSystemPrompt(profile) // <--- THIS IS THE KEY CHANGE
+              // FIX: Pass loaded memories into the prompt
+              content: getSystemPrompt(profile, memories) 
             },
             ...conversationHistory
           ],
@@ -132,7 +188,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       if (!response.ok) throw new Error(response.statusText);
       if (!response.body) throw new Error("No response body");
 
-      // 4. Read Stream
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let aiTextAccumulator = "";
@@ -155,9 +210,16 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
               
               if (content) {
                 aiTextAccumulator += content;
+                
+                // Clean up Thinking tags
+                const cleanText = aiTextAccumulator
+                  .replace(/<think>[\s\S]*?<\/think>/g, "") 
+                  .replace(/<think>[\s\S]*/g, "") 
+                  .trim();
+
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMsgId 
-                    ? { ...msg, text: aiTextAccumulator } 
+                    ? { ...msg, text: cleanText } 
                     : msg
                 ));
               }
@@ -172,7 +234,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       console.error('[ChatFeature] Error:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId 
-          ? { ...msg, text: "😔 My brain is tired. Can we try again?", isTyping: false } 
+          ? { ...msg, text: "😔 My brain is tired...", isTyping: false } 
           : msg
       ));
     } finally {
@@ -197,6 +259,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
           <h3 className="text-white font-bold text-lg">{profile.name}</h3>
           <p className="text-purple-300 text-xs flex items-center gap-1">
             <span>{profile.topicIcon}</span> {profile.relation}
+            {memories.length > 0 && <span className="text-green-400 ml-2">({memories.length} Memories)</span>}
           </p>
         </div>
       </div>
@@ -235,7 +298,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isStreaming ? "Diyara is thinking..." : `Talk to Diyara...`}
+            placeholder={isStreaming ? "Diyara is answering..." : `Teach Diyara something...`}
             disabled={isStreaming}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
