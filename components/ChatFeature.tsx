@@ -21,8 +21,9 @@ const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507';
 // --- MEMORY HELPER FUNCTIONS ---
 
 function getSystemPrompt(profile: UserProfile, memories: string[]): string {
+  // We still LOAD memories so she remembers what she already learned
   const memoryBlock = memories.length > 0 
-    ? `THINGS YOU HAVE LEARNED FROM THE FAMILY:\n${memories.map(m => `- ${m}`).join('\n')}`
+    ? `THINGS YOU ALREADY KNOW:\n${memories.map(m => `- ${m}`).join('\n')}`
     : "";
 
   const basePrompt = `
@@ -44,11 +45,11 @@ function getSystemPrompt(profile: UserProfile, memories: string[]): string {
           
           ${memoryBlock}
 
-          INSTRUCTION: If the user teaches you something, say "I will remember that!".
           CONSTRAINT: Keep answers short (under 3 sentences).`;
 }
 
-// 2. Check if message is a "Lesson" (Now more robust)
+// 2. Check if message is a "Lesson" 
+// NOTE: We will manually trigger this or keep it for later to save API calls
 async function extractAndSaveMemory(text: string, profile: UserProfile, userId: string) {
   if (!BYTEZ_API_KEY) return;
 
@@ -59,19 +60,22 @@ async function extractAndSaveMemory(text: string, profile: UserProfile, userId: 
       body: JSON.stringify({
         model: MODEL_ID,
         messages: [
-          { role: "system", content: "Analyze the user's message. If it contains a FACT, ADVICE, or STORY worth remembering for a child, output JUST the lesson text. If it is casual chat like 'hello' or 'good', output exactly the word NOTHING." },
+          { role: "system", content: "Extract any FACT or LESSON from the user input. If none, output NOTHING." },
           { role: "user", content: text }
         ]
       })
     });
 
+    if (response.status === 429) {
+      console.warn("Skipping memory extraction due to Rate Limit");
+      return;
+    }
+
     const data = await response.json();
     const memory = data.choices?.[0]?.message?.content?.trim();
 
-    // Logic Fix: Only save if it's not "NOTHING" and actually has length
     if (memory && memory.length > 8 && !memory.toUpperCase().includes("NOTHING")) {
       console.log("💡 Learned a new memory:", memory);
-      
       await supabase.from('memories').insert({
         user_id: userId,
         taught_by: profile.relation,
@@ -79,8 +83,7 @@ async function extractAndSaveMemory(text: string, profile: UserProfile, userId: 
       });
     }
   } catch (e) {
-    // Silently fail memory extraction so it doesn't break the app
-    console.warn("Memory extraction skipped this time.");
+    console.warn("Memory extraction skipped.");
   }
 }
 
@@ -147,14 +150,14 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
     };
 
     setMessages((prev) => [...prev, newUserMessage, newAiMessage]);
-    const textToSend = inputText; // capture text for the delay function
+    // const textToSend = inputText; // We are disabling memory save for now
     setInputText('');
     setIsStreaming(true);
 
-    // FIX: Delay Memory Extraction by 5 seconds to prevent Network Collision
-    setTimeout(() => {
-      extractAndSaveMemory(textToSend, profile, userId);
-    }, 5000);
+    // 🔴 DISABLED TEMPORARILY TO FIX 429 ERRORS
+    // setTimeout(() => {
+    //   extractAndSaveMemory(textToSend, profile, userId);
+    // }, 5000);
 
     try {
       const conversationHistory = messages.map(msg => ({
@@ -183,6 +186,10 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         })
       });
 
+      // FIX: Handle 429 Specifically
+      if (response.status === 429) {
+        throw new Error("Rate Limit Reached (429)");
+      }
       if (!response.ok) throw new Error(response.statusText);
       if (!response.body) throw new Error("No response body");
 
@@ -229,9 +236,16 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
     } catch (error: any) {
       console.error('[ChatFeature] Error:', error);
+      
+      // Specific Error Message for Rate Limits
+      let errorMessage = "😔 I lost connection... can you say that again?";
+      if (error.message.includes('429') || error.message.includes('Rate Limit')) {
+        errorMessage = "🚦 I'm tired (Too many messages). Please wait a minute!";
+      }
+
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId 
-          ? { ...msg, text: "😔 I lost connection... can you say that again?", isTyping: false } 
+          ? { ...msg, text: errorMessage, isTyping: false } 
           : msg
       ));
     } finally {
@@ -295,7 +309,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isStreaming ? "Diyara is answering..." : `Teach Diyara something...`}
+            placeholder={isStreaming ? "Diyara is answering..." : `Talk to Diyara...`}
             disabled={isStreaming}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
