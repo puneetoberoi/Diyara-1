@@ -67,7 +67,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         .from('memories')
         .select('memory_text')
         .eq('user_id', userId)
-        .order('created_at', { ascending: false }) // Get newest first
+        .order('created_at', { ascending: false }) 
         .limit(10); 
 
       if (data) {
@@ -83,13 +83,9 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
   // --- STEP 2: MEMORY EXTRACTION ---
   const runMemoryPhase = async (userText: string) => {
-    // Validation: Skip very short messages
-    if (userText.length < 10) {
-      console.log("Skipping memory (text too short)");
-      return;
-    }
+    if (userText.length < 8) return; // Lowered limit to catch short likes
 
-    console.log("🧠 Starting memory check for:", userText); // <--- DEBUG LOG
+    console.log("🧠 Checking text for memories:", userText);
     setStatusText("Memorizing...");
     
     try {
@@ -99,7 +95,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         body: JSON.stringify({
           model: MODEL_ID,
           messages: [
-            { role: "system", content: "Extract the core FACT or PREFERENCE from the user's text. If there is no clear fact to remember, output exactly the word NOTHING." },
+            { 
+              role: "system", 
+              // FIX: Updated prompt to explicitly look for PREFERENCES (Likes/Dislikes)
+              content: "Extract any USER PREFERENCE (likes/dislikes), FACT, ADVICE, or PERSONAL DETAIL from the text. Example: 'I love pizza' -> 'The user loves pizza'. If there is nothing specific to remember, output exactly the word NOTHING." 
+            },
             { role: "user", content: userText }
           ]
         })
@@ -107,6 +107,8 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
 
       const data = await response.json();
       const memory = data.choices?.[0]?.message?.content?.trim();
+
+      console.log("🧠 Memory Analysis Result:", memory); // Debug log to see what AI thought
 
       if (memory && memory.length > 5 && !memory.toUpperCase().includes("NOTHING")) {
         console.log("💡 Saving Memory:", memory);
@@ -116,8 +118,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
           memory_text: memory
         });
         setMemories(prev => [memory, ...prev]);
-      } else {
-        console.log("No new memory found in text.");
       }
     } catch (e) {
       console.warn("Memory check failed:", e);
@@ -200,8 +200,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       }
       
       // --- COOL DOWN PERIOD ---
-      // Wait 3 seconds to let the first connection fully close
-      // This prevents the "429 Rate Limit" or "Protocol Error"
       console.log("⏳ Cooling down connection...");
       await new Promise(resolve => setTimeout(resolve, 3000));
 
