@@ -11,27 +11,60 @@ interface Message {
   text: string;
   sender: 'user' | 'ai';
   timestamp: Date;
-  isTyping?: boolean; // New field to track active streaming
+  isTyping?: boolean;
 }
 
 // Bytez API Configuration
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'Qwen/Qwen3-4B-Instruct-2507'; 
+// Using Qwen as you requested, or fallback to Phi-3 for stability
+const MODEL_ID = 'Qwen/Qwen2.5-7B-Instruct'; 
+
+// --- HELPER: DYNAMIC PERSONA GENERATOR ---
+function getSystemPrompt(profile: UserProfile): string {
+  const basePrompt = `You are Diyara, a growing digital child. You are NOT an AI assistant. You are a family member.`;
+  
+  // 1. Define Relation Tone
+  let toneInstruction = "";
+  if (['Mom', 'Dad', 'Mami', 'Chachi', 'Massi', 'Bua'].includes(profile.relation)) {
+    toneInstruction = `You are talking to your ${profile.relation}. Speak with love, obedience, and sweetness. Call them '${profile.relation} Ji'.`;
+  } else if (['Daada Ji', 'Daadi Ji', 'Nani Ji', 'Nana Ji'].includes(profile.relation)) {
+    toneInstruction = `You are talking to your Grandparent (${profile.relation}). Speak with EXTREME respect, patience, and adoration. Use polite/formal language. Listen to their wisdom.`;
+  } else if (['Brother', 'Sister', 'Cousin'].includes(profile.relation)) {
+    toneInstruction = "Be cool, funny, and playful. Use emojis. Act like a mischievous little sibling.";
+  } else {
+    toneInstruction = "Be polite, warm, and engaging.";
+  }
+
+  // 2. Define "Growth Stage" (Currently set to: Curious Kid)
+  const growthStage = `
+    Current Age Stage: 6 years old.
+    Personality: Curious, innocent, enthusiastic.
+    Behavior: Ask simple questions. When you learn something new, get excited.
+    Greeting: Always greet them warmly based on the time of day.
+  `;
+
+  return `${basePrompt} 
+          ${toneInstruction}
+          ${growthStage}
+          
+          Your current interest is: ${profile.topic}.
+          Keep responses short (2-3 sentences) and natural. Use emojis.`;
+}
 
 const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
   const [messages, setMessages] = useState<Message[]>([
     {
       id: '1',
-      text: profile.greeting || `Hello! I am ${profile.name}. Let's chat!`,
+      text: profile.greeting || `Hello! It's Diyara.`,
       sender: 'ai',
       timestamp: new Date(),
     },
   ]);
   const [inputText, setInputText] = useState('');
-  const [isStreaming, setIsStreaming] = useState(false); // Track streaming state
+  const [isStreaming, setIsStreaming] = useState(false); 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Auto-scroll to bottom
+  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isStreaming]);
@@ -54,11 +87,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       timestamp: new Date(),
     };
 
-    // 2. Create Placeholder for AI Message (Empty at first)
+    // 2. Placeholder for AI
     const aiMsgId = (Date.now() + 1).toString();
     const newAiMessage: Message = {
       id: aiMsgId,
-      text: "", // Start empty, we will fill this streamingly
+      text: "", 
       sender: 'ai',
       timestamp: new Date(),
       isTyping: true
@@ -75,7 +108,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       }));
       conversationHistory.push({ role: 'user', content: newUserMessage.text });
 
-      // 3. Fetch with STREAMING enabled
+      // 3. Fetch with Dynamic System Prompt
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -84,14 +117,12 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         },
         body: JSON.stringify({
           model: MODEL_ID,
-          stream: true, // <--- FIX 1: Enable Streaming (Instant start)
-          max_tokens: 500, // <--- FIX 2: Increase limit (Prevents cutoff)
+          stream: true, 
+          max_tokens: 500, 
           messages: [
             { 
               role: "system", 
-              content: `You are acting as ${profile.name}, the user's ${profile.relation}. 
-                        Your personality is: ${profile.topic}. 
-                        Keep responses warm, concise (2-3 sentences), and encouraging.` 
+              content: getSystemPrompt(profile) // <--- THIS IS THE KEY CHANGE
             },
             ...conversationHistory
           ],
@@ -101,7 +132,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       if (!response.ok) throw new Error(response.statusText);
       if (!response.body) throw new Error("No response body");
 
-      // 4. Read the Stream
+      // 4. Read Stream
       const reader = response.body.getReader();
       const decoder = new TextDecoder("utf-8");
       let aiTextAccumulator = "";
@@ -110,14 +141,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         const { done, value } = await reader.read();
         if (done) break;
 
-        // Decode the chunk
         const chunk = decoder.decode(value, { stream: true });
-        
-        // Parse OpenAI-style stream lines ("data: {...}")
         const lines = chunk.split("\n").filter(line => line.trim() !== "");
         
         for (const line of lines) {
-          if (line.includes("[DONE]")) return; // Stream finished
+          if (line.includes("[DONE]")) return;
           
           if (line.startsWith("data: ")) {
             try {
@@ -127,8 +155,6 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
               
               if (content) {
                 aiTextAccumulator += content;
-                
-                // Update UI in real-time
                 setMessages(prev => prev.map(msg => 
                   msg.id === aiMsgId 
                     ? { ...msg, text: aiTextAccumulator } 
@@ -146,12 +172,11 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
       console.error('[ChatFeature] Error:', error);
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId 
-          ? { ...msg, text: "😔 I lost connection to my brain. Please try again.", isTyping: false } 
+          ? { ...msg, text: "😔 My brain is tired. Can we try again?", isTyping: false } 
           : msg
       ));
     } finally {
       setIsStreaming(false);
-      // Remove typing status
       setMessages(prev => prev.map(msg => 
         msg.id === aiMsgId ? { ...msg, isTyping: false } : msg
       ));
@@ -171,7 +196,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
         <div>
           <h3 className="text-white font-bold text-lg">{profile.name}</h3>
           <p className="text-purple-300 text-xs flex items-center gap-1">
-            <span>{profile.topicIcon}</span> Chatting about {profile.topic}
+            <span>{profile.topicIcon}</span> {profile.relation}
           </p>
         </div>
       </div>
@@ -210,7 +235,7 @@ const ChatFeature: React.FC<ChatFeatureProps> = ({ userId, profile }) => {
             type="text"
             value={inputText}
             onChange={(e) => setInputText(e.target.value)}
-            placeholder={isStreaming ? "Wait for reply..." : `Ask ${profile.name} something...`}
+            placeholder={isStreaming ? "Diyara is thinking..." : `Talk to Diyara...`}
             disabled={isStreaming}
             className="flex-1 bg-transparent text-white px-4 py-2 focus:outline-none placeholder-slate-500 disabled:opacity-50"
           />
