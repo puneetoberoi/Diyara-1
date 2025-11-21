@@ -8,10 +8,10 @@ import GreetingScreen from './components/GreetingScreen';
 import ProfileSelection from './components/ProfileSelection';
 import ChatFeature from './components/ChatFeature';
 import CreateFeature from './components/CreateFeature';
-// Make sure FeatureTab is imported here
-import { FeatureTab, UserProfile } from './types'; 
-import LiveTalkFeature from './components/LiveTalkFeature'; // Make sure filename matches
+// FIX 1: Import the new features
+import LiveTalkFeature from './components/LiveTalkFeature';
 import AudioJournalFeature from './components/AudioJournalFeature';
+import { FeatureTab, UserProfile } from './types';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
@@ -19,11 +19,9 @@ function App() {
   // State
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
-  const [showGreeting, setShowGreeting] = useState(true);
+  const [showGreeting, setShowGreeting] = useState(false); // Changed default to false to prevent flash
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
-  
-  // FIX 1: Initialize with the Enum, not a string
   const [activeTab, setActiveTab] = useState<FeatureTab>(FeatureTab.Galaxy);
 
   // Load user profiles from database
@@ -41,6 +39,7 @@ function App() {
     setLoadingProfiles(true);
     try {
       const userProfiles = await db.getProfiles(user.id);
+      
       if (userProfiles && userProfiles.length > 0) {
         const mappedProfiles: UserProfile[] = userProfiles.map(p => ({
           id: p.relation.toLowerCase(),
@@ -51,9 +50,18 @@ function App() {
           topic: p.topic || getDefaultTopic(p.relation),
           topicIcon: p.topic_icon || '🌌',
         }));
+        
         setProfiles(mappedProfiles);
-        //setSelectedProfile(mappedProfiles[0]);
-        setSelectedProfile(null);
+        
+        // FIX 3: Check Local Storage for persistence (Solves the "Timeout" issue)
+        const savedProfileId = localStorage.getItem('diyara_selected_profile');
+        if (savedProfileId) {
+          const foundProfile = mappedProfiles.find(p => p.id === savedProfileId);
+          if (foundProfile) {
+            setSelectedProfile(foundProfile);
+            setShowGreeting(false); // Don't show greeting on refresh
+          }
+        }
       } else {
         setProfiles([]);
       }
@@ -67,6 +75,7 @@ function App() {
   const handleProfileSelect = async (profile: any) => {
     if (!user) return;
     try {
+      // ... existing db creation logic ...
       const dbProfile = {
         name: profile.name,
         relation: profile.name,
@@ -97,6 +106,9 @@ function App() {
       };
 
       setSelectedProfile(userProfile);
+      // FIX 3: Save to local storage
+      localStorage.setItem('diyara_selected_profile', userProfile.id);
+      
       setShowGreeting(true);
     } catch (error) {
       console.error('Error selecting profile:', error);
@@ -110,13 +122,22 @@ function App() {
 
   const handleLogout = async () => {
     try {
+      // FIX 3: Clear local storage on logout
+      localStorage.removeItem('diyara_selected_profile');
       await signOut();
       setSelectedProfile(null);
       setProfiles([]);
-      setShowGreeting(true);
+      setShowGreeting(false);
     } catch (error) {
       console.error('Error logging out:', error);
     }
+  };
+
+  const handleSwitchProfile = () => {
+    // FIX 3: Clear local storage when switching profiles manually
+    localStorage.removeItem('diyara_selected_profile');
+    setSelectedProfile(null);
+    setIsSettingsOpen(false);
   };
 
   const FeaturePlaceholder = ({ featureName, icon }: { featureName: string; icon: string }) => (
@@ -131,31 +152,34 @@ function App() {
     </div>
   );
 
-  // FIX 2: Use the FeatureTab Enum in the switch statement
+  // FIX 1: UPDATED RENDER FUNCTION
   const renderFeature = () => {
     if (!selectedProfile || !user) return null;
-
-    // Debug log to verify what is happening
-    console.log('Current Active Tab:', activeTab);
 
     switch (activeTab) {
       case FeatureTab.Chat:
         return <ChatFeature userId={user.id} profile={selectedProfile} />;
+      
       case FeatureTab.Create:
         return <CreateFeature userId={user.id} profile={selectedProfile} />;
+      
+      case FeatureTab.Talk:
+        // NOW CONNECTED
+        return <LiveTalkFeature userId={user.id} profile={selectedProfile} />;
+
+      case FeatureTab.AudioJournal: 
+        // NOW CONNECTED
+        return <AudioJournalFeature userId={user.id} profile={selectedProfile} />;
+
+      // Placeholders for removed/future features
       case FeatureTab.Galaxy:
         return <FeaturePlaceholder featureName="Galaxy Missions" icon="🌌" />;
-      case FeatureTab.AudioJournal: // Note: BottomNav used 'AudioJournal', make sure this matches
-        return <FeaturePlaceholder featureName="Audio Journal" icon="🎙️" />;
-      case FeatureTab.Talk:
-        return <FeaturePlaceholder featureName="Live Talk" icon="🗣️" />;
       case FeatureTab.Gallery:
         return <FeaturePlaceholder featureName="Gallery" icon="🖼️" />;
       case FeatureTab.Garden:
         return <FeaturePlaceholder featureName="Garden" icon="🌻" />;
+        
       default:
-        // Fallback to catch mismatches
-        console.log('Hit default case with tab:', activeTab);
         return <FeaturePlaceholder featureName="Select a Feature" icon="✨" />;
     }
   };
@@ -199,17 +223,7 @@ function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
       />
       
-      <div className="bg-green-500/20 border-b border-green-500/50 px-4 py-2 flex items-center justify-between">
-        <p className="text-green-300 text-sm">
-          ✨ Phase 2 Active - Chat & Create working!
-        </p>
-        <button
-          onClick={() => setSelectedProfile(null)}
-          className="px-3 py-1 bg-purple-600 hover:bg-purple-700 text-white text-sm rounded-lg transition"
-        >
-          Switch Profile
-        </button>
-      </div>
+      {/* FIX 2: Removed Green "Phase 2" Banner */}
 
       <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
         {renderFeature()}
@@ -234,6 +248,13 @@ function App() {
                 <p className="text-gray-300 text-sm mb-2">Logged in as:</p>
                 <p className="text-white font-medium">{user.email}</p>
               </div>
+              <div className="bg-slate-800 p-4 rounded-lg">
+                <p className="text-gray-300 text-sm mb-2">Current Profile:</p>
+                <p className="text-white font-medium">{selectedProfile.name}</p>
+              </div>
+              <button onClick={handleSwitchProfile} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">
+                Switch Profile
+              </button>
               <button onClick={handleLogout} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition">
                 Logout
               </button>
@@ -245,7 +266,7 @@ function App() {
   );
 }
 
-// Helper functions remain the same...
+// Helper functions
 function getDefaultAvatar(relation: string) { return '👤'; }
 function getDefaultGreeting(relation: string) { return `Hello, ${relation}!`; }
 function getDefaultTopic(relation: string) { return 'General Topics'; }
