@@ -1,277 +1,201 @@
-import React, { useState, useRef, useEffect } from 'react';
-import Groq from 'groq-sdk';
-import Icon from './Icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserProfile } from '../types';
 
-type SessionState = 'idle' | 'connecting' | 'listening' | 'processing' | 'error';
-interface Transcription {
-    id: number;
-    speaker: 'user' | 'model';
-    text: string;
-    isFinal: boolean;
+interface LiveTalkProps {
+  userId: string;
+  profile: UserProfile;
 }
 
-const LiveTalkFeature: React.FC = () => {
-    const [sessionState, setSessionState] = useState<SessionState>('idle');
-    const [errorMessage, setErrorMessage] = useState<string>('');
-    const [transcriptions, setTranscriptions] = useState<Transcription[]>([]);
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
-    const transcriptEndRef = useRef<HTMLDivElement>(null);
-    const turnCounterRef = useRef(0);
-    const conversationHistoryRef = useRef<{role: 'user' | 'assistant', content: string}[]>([]);
+const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
+const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct';
 
-    useEffect(() => {
-        transcriptEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-    }, [transcriptions]);
+const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
+  const [isListening, setIsListening] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [transcript, setTranscript] = useState("Press the mic to start talking...");
+  const [aiResponse, setAiResponse] = useState("");
+  const [language, setLanguage] = useState<'en-US' | 'hi-IN' | 'pa-IN'>('en-US');
 
-    const cleanup = () => {
-        if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-            mediaRecorderRef.current.stop();
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-            mediaRecorderRef.current = null;
+  // Browser Speech Recognition Setup
+  const recognitionRef = useRef<any>(null);
+
+  useEffect(() => {
+    // Initialize Speech Recognition
+    if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = true;
+    } else {
+      setTranscript("Sorry, your browser doesn't support voice talk.");
+    }
+  }, []);
+
+  // 1. Start Listening
+  const toggleListening = () => {
+    if (isListening) {
+      recognitionRef.current.stop();
+      setIsListening(false);
+    } else {
+      if (!recognitionRef.current) return;
+      
+      // Stop any current speech
+      window.speechSynthesis.cancel();
+      
+      recognitionRef.current.lang = language;
+      recognitionRef.current.start();
+      setIsListening(true);
+      setTranscript("Listening...");
+      setAiResponse("");
+
+      recognitionRef.current.onresult = (event: any) => {
+        const text = event.results[0][0].transcript;
+        setTranscript(text);
+      };
+
+      recognitionRef.current.onend = () => {
+        setIsListening(false);
+        // Auto-submit when silence is detected
+        if (recognitionRef.current && transcript !== "Listening...") {
+          handleSendToAI();
         }
-        audioChunksRef.current = [];
-    };
+      };
+    }
+  };
+
+  // 2. Send to Bytez AI
+  const handleSendToAI = async () => {
+    // Small delay to ensure state is updated
+    const textToSend = document.getElementById('transcript-display')?.innerText || "";
+    if (textToSend.length < 2 || textToSend === "Listening...") return;
+
+    setAiResponse("Thinking...");
+
+    try {
+      const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${BYTEZ_API_KEY}`
+        },
+        body: JSON.stringify({
+          model: MODEL_ID,
+          messages: [
+            { 
+              role: "system", 
+              content: `You are Diyara, a giggly 2-year-old child. 
+                        You are talking to ${profile.relation}. 
+                        Keep sentences very short (5-10 words). 
+                        Use simple words. 
+                        Giggle often like *giggles*.
+                        Reply in the same language as the user (${language}).` 
+            },
+            { role: "user", content: textToSend }
+          ]
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.choices?.[0]?.message?.content || "Giggle!";
+      setAiResponse(reply);
+      speakOutLoud(reply);
+
+    } catch (error) {
+      console.error(error);
+      setAiResponse("Oopsie, I fell asleep!");
+    }
+  };
+
+  // 3. Text-to-Speech (The "Giggly Voice")
+  const speakOutLoud = (text: string) => {
+    if (!window.speechSynthesis) return;
+
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = language;
     
-    useEffect(() => {
-        return () => cleanup();
-    }, []);
-
-    const playTextToSpeech = async (text: string) => {
-        try {
-            // Use browser's built-in speech synthesis
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.rate = 1.0;
-            utterance.pitch = 1.0;
-            utterance.volume = 1.0;
-            window.speechSynthesis.speak(utterance);
-        } catch (error) {
-            console.error('Error with text-to-speech:', error);
-        }
-    };
-
-    const handleToggleSession = async () => {
-        if (sessionState === 'listening') {
-            // Stop recording
-            if (mediaRecorderRef.current && mediaRecorderRef.current.state === 'recording') {
-                mediaRecorderRef.current.stop();
-            }
-            return;
-        }
-        
-        setSessionState('connecting');
-        setErrorMessage('');
-        
-        try {
-            const apiKey = localStorage.getItem('GROQ_API_KEY');
-            
-            if (!apiKey) {
-                throw new Error('No API key found. Please set up your Groq API key.');
-            }
-
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            
-            mediaRecorderRef.current = new MediaRecorder(stream);
-            audioChunksRef.current = [];
-
-            mediaRecorderRef.current.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data);
-                }
-            };
-
-            mediaRecorderRef.current.onstop = async () => {
-                setSessionState('processing');
-                
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                const audioFile = new File([audioBlob], "recording.webm", { type: "audio/webm" });
-                
-                try {
-                    // Initialize Groq
-                    const groq = new Groq({
-                        apiKey: apiKey,
-                        dangerouslyAllowBrowser: true
-                    });
-
-                    // Step 1: Add user's pending message
-                    const userTranscriptId = turnCounterRef.current++;
-                    setTranscriptions(prev => [...prev, { 
-                        id: userTranscriptId, 
-                        speaker: 'user', 
-                        text: '🎤 Transcribing...', 
-                        isFinal: false 
-                    }]);
-
-                    // Step 2: Transcribe audio using Groq Whisper
-                    const transcription = await groq.audio.transcriptions.create({
-                        file: audioFile,
-                        model: "whisper-large-v3",
-                        response_format: "json",
-                    });
-
-                    const userText = transcription.text;
-
-                    // Update user transcription
-                    setTranscriptions(prev => prev.map(t => 
-                        t.id === userTranscriptId 
-                            ? {...t, text: userText, isFinal: true} 
-                            : t
-                    ));
-
-                    // Add to conversation history
-                    conversationHistoryRef.current.push({
-                        role: 'user',
-                        content: userText
-                    });
-
-                    // Step 3: Add model's pending message
-                    const modelTranscriptId = turnCounterRef.current++;
-                    setTranscriptions(prev => [...prev, { 
-                        id: modelTranscriptId, 
-                        speaker: 'model', 
-                        text: '🤔 Thinking...', 
-                        isFinal: false 
-                    }]);
-
-                    // Step 4: Get AI response
-                    const chatCompletion = await groq.chat.completions.create({
-                        messages: [
-                            {
-                                role: 'system',
-                                content: 'You are Diyara, a curious and helpful AI companion. Keep responses concise and conversational, as this is a voice conversation. Respond in 2-3 sentences.'
-                            },
-                            ...conversationHistoryRef.current
-                        ],
-                        model: 'llama-3.1-70b-versatile',
-                        temperature: 0.7,
-                        max_tokens: 150,
-                    });
-
-                    const modelText = chatCompletion.choices[0]?.message?.content || 'I\'m having trouble responding right now.';
-
-                    // Update model transcription
-                    setTranscriptions(prev => prev.map(t => 
-                        t.id === modelTranscriptId 
-                            ? {...t, text: modelText, isFinal: true} 
-                            : t
-                    ));
-
-                    // Add to conversation history
-                    conversationHistoryRef.current.push({
-                        role: 'assistant',
-                        content: modelText
-                    });
-
-                    // Step 5: Speak the response
-                    await playTextToSpeech(modelText);
-
-                    // Cleanup and ready for next recording
-                    stream.getTracks().forEach(track => track.stop());
-                    setSessionState('idle');
-
-                } catch (error) {
-                    console.error('Error processing audio:', error);
-                    setErrorMessage('Error processing audio. Please try again.');
-                    setSessionState('error');
-                    stream.getTracks().forEach(track => track.stop());
-                }
-            };
-
-            mediaRecorderRef.current.start();
-            setSessionState('listening');
-            
-        } catch (err) {
-            console.error('Failed to start session:', err);
-            setErrorMessage('Could not access microphone. Please grant permission.');
-            setSessionState('error');
-        }
-    };
-
-    const handleClearConversation = () => {
-        setTranscriptions([]);
-        conversationHistoryRef.current = [];
-        turnCounterRef.current = 0;
-        window.speechSynthesis.cancel();
-    };
+    // THE MAGIC: High pitch + slightly fast rate = Child Voice
+    utterance.pitch = 1.6; // 0 to 2 (High pitch)
+    utterance.rate = 1.1;  // 0.1 to 10 (Slightly fast)
     
-    const getButtonState = () => {
-        switch (sessionState) {
-            case 'idle':
-            case 'error':
-                return { text: 'Talk', icon: 'talk', color: 'bg-yellow-400', pulse: false } as const;
-            case 'connecting':
-                return { text: 'Connecting...', icon: 'talk', color: 'bg-yellow-500', pulse: true } as const;
-            case 'listening':
-                return { text: 'Listening...', icon: 'sound', color: 'bg-red-500', pulse: true } as const;
-            case 'processing':
-                return { text: 'Processing...', icon: 'analyze', color: 'bg-blue-500', pulse: true } as const;
-        }
-    };
-    const buttonState = getButtonState();
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    
+    window.speechSynthesis.speak(utterance);
+  };
 
-    return (
-        <div className="p-4 flex flex-col h-full animate-fadeIn">
-            <div className="text-center">
-                <h2 className="text-2xl font-brand holographic-text">Live Conversation</h2>
-                <p className="text-slate-300 max-w-sm mx-auto mb-2">Press Talk, speak, then press again to stop and get a response!</p>
-                <div className="bg-green-900/20 border border-green-700/50 rounded-lg p-3 max-w-md mx-auto mb-4">
-                    <p className="text-xs text-green-300">
-                        ✅ Powered by Groq Whisper for transcription + Llama for conversation!
-                    </p>
-                </div>
-            </div>
+  return (
+    <div className="h-full flex flex-col bg-gradient-to-b from-slate-900 to-purple-900 p-6 overflow-y-auto pb-24">
+      
+      {/* Language Selector */}
+      <div className="flex justify-center gap-2 mb-8">
+        {[
+          { code: 'en-US', label: '🇺🇸 English' },
+          { code: 'hi-IN', label: '🇮🇳 Hindi' },
+          { code: 'pa-IN', label: '🪯 Punjabi' }
+        ].map(lang => (
+          <button
+            key={lang.code}
+            onClick={() => setLanguage(lang.code as any)}
+            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
+              language === lang.code ? 'bg-yellow-400 text-black scale-105' : 'bg-slate-800 text-white'
+            }`}
+          >
+            {lang.label}
+          </button>
+        ))}
+      </div>
 
-            <div className="flex-grow bg-black/20 rounded-lg p-3 my-4 overflow-y-auto min-h-0">
-                <div className="space-y-3">
-                    {transcriptions.map(t => (
-                        <div key={t.id} className={`flex items-end gap-2 ${t.speaker === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}>
-                            {t.speaker === 'model' && <Icon name="sparkle" className="w-5 h-5 text-yellow-300 flex-shrink-0 mb-1" />}
-                            <p className={`p-3 rounded-lg max-w-xs md:max-w-md ${t.speaker === 'user' ? 'bg-[#6A5ACD] text-white' : 'bg-slate-700 text-slate-200'}`}>
-                                {t.text}
-                            </p>
-                        </div>
-                    ))}
-                    {sessionState === 'listening' && (
-                        <p className="text-slate-400 text-center animate-pulse">🎤 Speak now...</p>
-                    )}
-                    {sessionState === 'processing' && (
-                        <p className="text-slate-400 text-center animate-pulse">⚙️ Processing your message...</p>
-                    )}
-                    {transcriptions.length === 0 && sessionState === 'idle' && (
-                        <p className="text-slate-400 text-center">Press Talk to start your conversation with Diyara!</p>
-                    )}
-                </div>
-                <div ref={transcriptEndRef}></div>
-            </div>
+      {/* Avatar Animation */}
+      <div className="flex-1 flex flex-col items-center justify-center min-h-[300px]">
+        <div className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${
+          isSpeaking ? 'scale-110' : 'scale-100'
+        }`}>
+          {/* Glowing Ring */}
+          <div className={`absolute inset-0 rounded-full border-4 border-yellow-400 ${
+            isSpeaking || isListening ? 'animate-ping opacity-50' : 'opacity-0'
+          }`}></div>
+          
+          <div className="w-full h-full rounded-full bg-purple-600 flex items-center justify-center text-8xl border-4 border-white shadow-2xl z-10">
+            {profile.avatar}
+          </div>
 
-            <div className="flex flex-col items-center justify-center text-center gap-3">
-                <div className="relative flex items-center justify-center">
-                    {buttonState.pulse && (
-                        <div className={`absolute w-40 h-40 ${buttonState.color} rounded-full opacity-75 animate-ping`}></div>
-                    )}
-                    <button
-                        onClick={handleToggleSession}
-                        disabled={sessionState === 'processing'}
-                        className={`relative w-28 h-28 rounded-full text-black font-bold flex flex-col items-center justify-center gap-1 transition-all duration-300 ${buttonState.color} shadow-lg hover:scale-105 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed`}
-                    >
-                        <Icon name={buttonState.icon} className="w-8 h-8" />
-                        <span className="text-sm">{buttonState.text}</span>
-                    </button>
-                </div>
-                
-                {transcriptions.length > 0 && (
-                    <button
-                        onClick={handleClearConversation}
-                        className="text-slate-400 hover:text-white text-sm underline"
-                    >
-                        Clear Conversation
-                    </button>
-                )}
-                
-                {errorMessage && <p className="text-red-400">{errorMessage}</p>}
-            </div>
+          {/* Status Bubble */}
+          <div className="absolute -top-12 bg-white text-black px-4 py-2 rounded-xl rounded-br-none font-bold animate-bounce shadow-lg">
+            {isListening ? "👂 Listening..." : isSpeaking ? "🗣️ Speaking..." : "Tap mic!"}
+          </div>
         </div>
-    );
+      </div>
+
+      {/* Transcript Area */}
+      <div className="bg-black/30 backdrop-blur-md rounded-2xl p-6 mb-8 border border-white/10 min-h-[150px]">
+        <p className="text-slate-400 text-xs mb-2 uppercase tracking-wider">You said:</p>
+        <p id="transcript-display" className="text-white text-lg font-medium mb-6 min-h-[28px]">
+          {transcript}
+        </p>
+        
+        <div className="border-t border-white/10 my-4"></div>
+
+        <p className="text-purple-300 text-xs mb-2 uppercase tracking-wider">Diyara said:</p>
+        <p className="text-yellow-300 text-xl font-bold italic">
+          "{aiResponse}"
+        </p>
+      </div>
+
+      {/* Controls */}
+      <div className="flex justify-center">
+        <button
+          onClick={toggleListening}
+          className={`w-20 h-20 rounded-full flex items-center justify-center text-3xl shadow-2xl transition-all transform active:scale-90 ${
+            isListening 
+              ? 'bg-red-500 animate-pulse' 
+              : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:scale-110'
+          }`}
+        >
+          {isListening ? '⬛' : '🎙️'}
+        </button>
+      </div>
+    </div>
+  );
 };
 
 export default LiveTalkFeature;
