@@ -11,7 +11,7 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
   const [isRecording, setIsRecording] = useState(false);
   const [recordings, setRecordings] = useState<any[]>([]);
   const [uploading, setUploading] = useState(false);
-  const [title, setTitle] = useState(""); // New State for Title
+  const [title, setTitle] = useState("");
   
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -28,6 +28,34 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
       .order('created_at', { ascending: false });
     
     if (data) setRecordings(data);
+  };
+
+  const handleDelete = async (id: string, audioUrl: string) => {
+    if (!window.confirm("Are you sure you want to delete this memory?")) return;
+
+    try {
+      // 1. Delete from DB
+      const { error: dbError } = await supabase
+        .from('journal_entries')
+        .delete()
+        .eq('id', id);
+      
+      if (dbError) throw dbError;
+
+      // 2. Delete from Storage (Optional but clean)
+      // Extract filename from URL roughly
+      const path = audioUrl.split('/audio-journals/')[1];
+      if (path) {
+        await supabase.storage.from('audio-journals').remove([path]);
+      }
+
+      // Refresh UI
+      setRecordings(prev => prev.filter(r => r.id !== id));
+
+    } catch (error) {
+      console.error("Error deleting:", error);
+      alert("Could not delete entry.");
+    }
   };
 
   const startRecording = async () => {
@@ -66,31 +94,28 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
     const fileName = `${userId}/${Date.now()}.webm`;
 
     try {
-      // 1. Upload Audio
       const { error: uploadError } = await supabase.storage
         .from('audio-journals')
         .upload(fileName, audioBlob);
 
       if (uploadError) throw uploadError;
 
-      // 2. Get URL
       const { data: { publicUrl } } = supabase.storage
         .from('audio-journals')
         .getPublicUrl(fileName);
 
-      // 3. Save to DB with TITLE
       const { error: dbError } = await supabase
         .from('journal_entries')
         .insert({
           user_id: userId,
           audio_url: publicUrl,
-          title: defaultTitle, // Saving the title
+          title: defaultTitle,
           mood: 'Reflective'
         });
 
       if (dbError) throw dbError;
 
-      setTitle(""); // Reset title
+      setTitle("");
       fetchJournals();
 
     } catch (error) {
@@ -102,31 +127,28 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
   };
 
   return (
-    <div className="h-full flex flex-col bg-slate-900 p-6 overflow-y-auto pb-24">
+    <div className="h-full flex flex-col bg-slate-900 p-4 sm:p-6 overflow-y-auto pb-24 max-w-3xl mx-auto w-full">
       <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
         🎙️ Audio Journal
       </h2>
 
-      {/* Recorder Card */}
-      <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 mb-8 shadow-lg">
-        
-        {/* Title Input */}
+      <div className="bg-slate-800 rounded-2xl p-6 sm:p-8 text-center border border-slate-700 mb-8 shadow-lg">
         <input 
           type="text" 
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title your thought (e.g., A funny dream)..."
+          placeholder="Title your thought..."
           className="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white mb-6 focus:outline-none focus:border-purple-500 text-center"
         />
 
-        <div className="mb-6 text-purple-200 h-6">
-          {isRecording ? "🔴 Recording... Listening..." : "Tap to record"}
+        <div className="mb-6 text-purple-200 h-6 text-sm sm:text-base">
+          {isRecording ? "🔴 Recording..." : "Tap mic to record"}
         </div>
 
         <button
           onClick={isRecording ? stopRecording : startRecording}
           disabled={uploading}
-          className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl transition-all ${
+          className={`w-20 h-20 sm:w-24 sm:h-24 rounded-full flex items-center justify-center text-4xl transition-all ${
             isRecording 
               ? 'bg-red-500 animate-pulse shadow-red-500/50' 
               : 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/50'
@@ -136,7 +158,6 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
         </button>
       </div>
 
-      {/* List of Recordings */}
       <h3 className="text-lg font-semibold text-slate-300 mb-4">Your Thoughts</h3>
       
       <div className="space-y-3">
@@ -145,16 +166,21 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
         ) : (
           recordings.map((rec) => (
             <div key={rec.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
-              <div className="flex justify-between items-center">
+              <div className="flex justify-between items-start">
                 <div>
                   <p className="text-white font-medium">{rec.title || "Untitled Entry"}</p>
                   <span className="text-xs text-slate-400">
                     {new Date(rec.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-400">
-                  {rec.mood}
-                </span>
+                
+                <button 
+                  onClick={() => handleDelete(rec.id, rec.audio_url)}
+                  className="text-slate-500 hover:text-red-400 p-2 transition-colors"
+                  title="Delete Entry"
+                >
+                  🗑️
+                </button>
               </div>
               
               <audio controls src={rec.audio_url} className="w-full h-8 rounded-lg" />
