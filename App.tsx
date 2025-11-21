@@ -7,8 +7,7 @@ import BottomNav from './components/BottomNav';
 import GreetingScreen from './components/GreetingScreen';
 import ProfileSelection from './components/ProfileSelection';
 import ChatFeature from './components/ChatFeature';
-import CreateFeature from './components/CreateFeature';
-// FIX 1: Import the new features
+// Removed CreateFeature import
 import LiveTalkFeature from './components/LiveTalkFeature';
 import AudioJournalFeature from './components/AudioJournalFeature';
 import { FeatureTab, UserProfile } from './types';
@@ -19,12 +18,12 @@ function App() {
   // State
   const [selectedProfile, setSelectedProfile] = useState<UserProfile | null>(null);
   const [profiles, setProfiles] = useState<UserProfile[]>([]);
-  const [showGreeting, setShowGreeting] = useState(false); // Changed default to false to prevent flash
+  const [showGreeting, setShowGreeting] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [loadingProfiles, setLoadingProfiles] = useState(true);
   const [activeTab, setActiveTab] = useState<FeatureTab>(FeatureTab.Galaxy);
 
-  // Load user profiles from database
+  // Load user profiles from database & Check Local Storage
   useEffect(() => {
     if (user) {
       loadProfiles();
@@ -53,13 +52,14 @@ function App() {
         
         setProfiles(mappedProfiles);
         
-        // FIX 3: Check Local Storage for persistence (Solves the "Timeout" issue)
+        // FIX: PERSISTENCE CHECK
+        // If we have a saved profile ID in browser storage, auto-select it
         const savedProfileId = localStorage.getItem('diyara_selected_profile');
         if (savedProfileId) {
           const foundProfile = mappedProfiles.find(p => p.id === savedProfileId);
           if (foundProfile) {
             setSelectedProfile(foundProfile);
-            setShowGreeting(false); // Don't show greeting on refresh
+            setShowGreeting(false); // Skip greeting on refresh
           }
         }
       } else {
@@ -75,7 +75,7 @@ function App() {
   const handleProfileSelect = async (profile: any) => {
     if (!user) return;
     try {
-      // ... existing db creation logic ...
+      // Db create logic ...
       const dbProfile = {
         name: profile.name,
         relation: profile.name,
@@ -106,7 +106,8 @@ function App() {
       };
 
       setSelectedProfile(userProfile);
-      // FIX 3: Save to local storage
+      
+      // FIX: SAVE TO STORAGE
       localStorage.setItem('diyara_selected_profile', userProfile.id);
       
       setShowGreeting(true);
@@ -122,7 +123,7 @@ function App() {
 
   const handleLogout = async () => {
     try {
-      // FIX 3: Clear local storage on logout
+      // FIX: CLEAR STORAGE
       localStorage.removeItem('diyara_selected_profile');
       await signOut();
       setSelectedProfile(null);
@@ -134,7 +135,7 @@ function App() {
   };
 
   const handleSwitchProfile = () => {
-    // FIX 3: Clear local storage when switching profiles manually
+    // FIX: CLEAR STORAGE
     localStorage.removeItem('diyara_selected_profile');
     setSelectedProfile(null);
     setIsSettingsOpen(false);
@@ -152,7 +153,7 @@ function App() {
     </div>
   );
 
-  // FIX 1: UPDATED RENDER FUNCTION
+  // FIX: Render Feature Switch
   const renderFeature = () => {
     if (!selectedProfile || !user) return null;
 
@@ -160,18 +161,16 @@ function App() {
       case FeatureTab.Chat:
         return <ChatFeature userId={user.id} profile={selectedProfile} />;
       
-      case FeatureTab.Create:
-        return <CreateFeature userId={user.id} profile={selectedProfile} />;
-      
+      // Connect Talk Feature
       case FeatureTab.Talk:
-        // NOW CONNECTED
         return <LiveTalkFeature userId={user.id} profile={selectedProfile} />;
 
+      // Connect Journal Feature
       case FeatureTab.AudioJournal: 
-        // NOW CONNECTED
         return <AudioJournalFeature userId={user.id} profile={selectedProfile} />;
 
-      // Placeholders for removed/future features
+      // Removed Create Feature case
+
       case FeatureTab.Galaxy:
         return <FeaturePlaceholder featureName="Galaxy Missions" icon="🌌" />;
       case FeatureTab.Gallery:
@@ -217,51 +216,50 @@ function App() {
   }
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden">
-      <Header
-        userName={selectedProfile.name}
-        onOpenSettings={() => setIsSettingsOpen(true)}
-      />
-      
-      {/* FIX 2: Removed Green "Phase 2" Banner */}
+    <div className="h-screen w-screen bg-black flex justify-center items-center">
+      {/* FIX: Responsive Mobile Container */}
+      <div className="w-full h-full max-w-lg bg-slate-900 flex flex-col overflow-hidden shadow-2xl relative sm:rounded-xl sm:h-[95vh] sm:border sm:border-slate-800">
+        
+        <Header
+          userName={selectedProfile.name}
+          onOpenSettings={() => setIsSettingsOpen(true)}
+        />
+        
+        {/* Top Green Bar Removed */}
 
-      <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
-        {renderFeature()}
-      </main>
-      
-      <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
+        <main key={activeTab} className="flex-1 overflow-y-auto pb-20 main-content-animate">
+          {renderFeature()}
+        </main>
+        
+        <BottomNav activeTab={activeTab} setActiveTab={setActiveTab} />
 
-      {isSettingsOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-700">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-bold text-white">Settings</h2>
-              <button
-                onClick={() => setIsSettingsOpen(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                ✕
-              </button>
-            </div>
-            <div className="space-y-4">
-              <div className="bg-slate-800 p-4 rounded-lg">
-                <p className="text-gray-300 text-sm mb-2">Logged in as:</p>
-                <p className="text-white font-medium">{user.email}</p>
+        {isSettingsOpen && (
+          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+            <div className="bg-slate-900 rounded-2xl max-w-md w-full p-6 border border-slate-700">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold text-white">Settings</h2>
+                <button onClick={() => setIsSettingsOpen(false)} className="text-gray-400 hover:text-white">✕</button>
               </div>
-              <div className="bg-slate-800 p-4 rounded-lg">
-                <p className="text-gray-300 text-sm mb-2">Current Profile:</p>
-                <p className="text-white font-medium">{selectedProfile.name}</p>
+              <div className="space-y-4">
+                <div className="bg-slate-800 p-4 rounded-lg">
+                  <p className="text-gray-300 text-sm mb-2">Logged in as:</p>
+                  <p className="text-white font-medium">{user.email}</p>
+                </div>
+                <div className="bg-slate-800 p-4 rounded-lg">
+                  <p className="text-gray-300 text-sm mb-2">Current Profile:</p>
+                  <p className="text-white font-medium">{selectedProfile.name}</p>
+                </div>
+                <button onClick={handleSwitchProfile} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">
+                  Switch Profile
+                </button>
+                <button onClick={handleLogout} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition">
+                  Logout
+                </button>
               </div>
-              <button onClick={handleSwitchProfile} className="w-full py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg transition">
-                Switch Profile
-              </button>
-              <button onClick={handleLogout} className="w-full py-3 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg transition">
-                Logout
-              </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   );
 }
