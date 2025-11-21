@@ -12,37 +12,32 @@ const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct';
 const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState("Press the mic to start talking...");
+  const [transcript, setTranscript] = useState("Tap the mic to talk!");
   const [aiResponse, setAiResponse] = useState("");
-  const [language, setLanguage] = useState<'en-US' | 'hi-IN' | 'pa-IN'>('en-US');
 
-  // Browser Speech Recognition Setup
   const recognitionRef = useRef<any>(null);
 
   useEffect(() => {
-    // Initialize Speech Recognition
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
       recognitionRef.current.continuous = false;
       recognitionRef.current.interimResults = true;
+      // Auto-detect device language (e.g., 'en-US', 'hi-IN', 'pa-IN')
+      recognitionRef.current.lang = navigator.language || 'en-US';
     } else {
-      setTranscript("Sorry, your browser doesn't support voice talk.");
+      setTranscript("Browser doesn't support speech.");
     }
   }, []);
 
-  // 1. Start Listening
   const toggleListening = () => {
     if (isListening) {
       recognitionRef.current.stop();
       setIsListening(false);
     } else {
       if (!recognitionRef.current) return;
-      
-      // Stop any current speech
       window.speechSynthesis.cancel();
       
-      recognitionRef.current.lang = language;
       recognitionRef.current.start();
       setIsListening(true);
       setTranscript("Listening...");
@@ -55,17 +50,15 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
 
       recognitionRef.current.onend = () => {
         setIsListening(false);
-        // Auto-submit when silence is detected
-        if (recognitionRef.current && transcript !== "Listening...") {
+        // Only send if we actually heard something substantial
+        if (recognitionRef.current && transcript !== "Listening..." && transcript.length > 1) {
           handleSendToAI();
         }
       };
     }
   };
 
-  // 2. Send to Bytez AI
   const handleSendToAI = async () => {
-    // Small delay to ensure state is updated
     const textToSend = document.getElementById('transcript-display')?.innerText || "";
     if (textToSend.length < 2 || textToSend === "Listening...") return;
 
@@ -85,10 +78,9 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
               role: "system", 
               content: `You are Diyara, a giggly 2-year-old child. 
                         You are talking to ${profile.relation}. 
+                        IMPORTANT: Detect the language the user is speaking (English, Hindi, Punjabi, etc) and reply IN THAT SAME LANGUAGE.
                         Keep sentences very short (5-10 words). 
-                        Use simple words. 
-                        Giggle often like *giggles*.
-                        Reply in the same language as the user (${language}).` 
+                        Giggle often like *giggles*.` 
             },
             { role: "user", content: textToSend }
           ]
@@ -96,61 +88,40 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
       });
 
       const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || "Giggle!";
+      const reply = data.choices?.[0]?.message?.content || "*Giggles*";
       setAiResponse(reply);
       speakOutLoud(reply);
 
     } catch (error) {
       console.error(error);
-      setAiResponse("Oopsie, I fell asleep!");
+      setAiResponse("Oopsie!");
     }
   };
 
-  // 3. Text-to-Speech (The "Giggly Voice")
   const speakOutLoud = (text: string) => {
     if (!window.speechSynthesis) return;
-
     const utterance = new SpeechSynthesisUtterance(text);
-    utterance.lang = language;
     
-    // THE MAGIC: High pitch + slightly fast rate = Child Voice
-    utterance.pitch = 1.6; // 0 to 2 (High pitch)
-    utterance.rate = 1.1;  // 0.1 to 10 (Slightly fast)
+    // Auto-match the voice to the device language if possible
+    utterance.lang = navigator.language || 'en-US';
+    
+    // Child-like voice settings
+    utterance.pitch = 1.6; 
+    utterance.rate = 1.1;  
     
     utterance.onstart = () => setIsSpeaking(true);
     utterance.onend = () => setIsSpeaking(false);
-    
     window.speechSynthesis.speak(utterance);
   };
 
   return (
     <div className="h-full flex flex-col bg-gradient-to-b from-slate-900 to-purple-900 p-6 overflow-y-auto pb-24">
       
-      {/* Language Selector */}
-      <div className="flex justify-center gap-2 mb-8">
-        {[
-          { code: 'en-US', label: '🇺🇸 English' },
-          { code: 'hi-IN', label: '🇮🇳 Hindi' },
-          { code: 'pa-IN', label: '🪯 Punjabi' }
-        ].map(lang => (
-          <button
-            key={lang.code}
-            onClick={() => setLanguage(lang.code as any)}
-            className={`px-4 py-2 rounded-full text-xs font-bold transition-all ${
-              language === lang.code ? 'bg-yellow-400 text-black scale-105' : 'bg-slate-800 text-white'
-            }`}
-          >
-            {lang.label}
-          </button>
-        ))}
-      </div>
-
       {/* Avatar Animation */}
       <div className="flex-1 flex flex-col items-center justify-center min-h-[300px]">
         <div className={`relative w-48 h-48 rounded-full flex items-center justify-center transition-all duration-500 ${
           isSpeaking ? 'scale-110' : 'scale-100'
         }`}>
-          {/* Glowing Ring */}
           <div className={`absolute inset-0 rounded-full border-4 border-yellow-400 ${
             isSpeaking || isListening ? 'animate-ping opacity-50' : 'opacity-0'
           }`}></div>
@@ -159,7 +130,6 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
             {profile.avatar}
           </div>
 
-          {/* Status Bubble */}
           <div className="absolute -top-12 bg-white text-black px-4 py-2 rounded-xl rounded-br-none font-bold animate-bounce shadow-lg">
             {isListening ? "👂 Listening..." : isSpeaking ? "🗣️ Speaking..." : "Tap mic!"}
           </div>
@@ -191,7 +161,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
               : 'bg-gradient-to-r from-purple-500 to-pink-500 hover:scale-110'
           }`}
         >
-          {isListening ? '⬛' : '🎙️'}
+          {isListening ? '⏹️' : '🎙️'}
         </button>
       </div>
     </div>
