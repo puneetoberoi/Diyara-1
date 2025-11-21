@@ -10,6 +10,8 @@ import ChatFeature from './components/ChatFeature';
 import CreateFeature from './components/CreateFeature';
 // Make sure FeatureTab is imported here
 import { FeatureTab, UserProfile } from './types'; 
+import LiveTalkFeature from './components/LiveTalkFeature'; // Make sure filename matches
+import AudioJournalFeature from './components/AudioJournalFeature';
 
 function App() {
   const { user, loading: authLoading, signOut } = useAuth();
