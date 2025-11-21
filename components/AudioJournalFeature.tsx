@@ -1,202 +1,159 @@
-import React, { useState, useRef, useMemo } from 'react';
-import Groq from 'groq-sdk';
-import { AudioEntry } from '../types';
-import Icon from './Icons';
+import React, { useState, useEffect, useRef } from 'react';
+import { UserProfile } from '../types';
+import { supabase } from '../supabase';
 
-interface AudioJournalProps {
-    entries: AudioEntry[];
-    onEntriesUpdate: (entries: AudioEntry[]) => void;
+interface JournalProps {
+  userId: string;
+  profile: UserProfile;
 }
 
-type RecordingState = 'idle' | 'recording' | 'processing';
+const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
+  const [isRecording, setIsRecording] = useState(false);
+  const [recordings, setRecordings] = useState<any[]>([]);
+  const [uploading, setUploading] = useState(false);
+  
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const audioChunksRef = useRef<Blob[]>([]);
 
-const AudioJournalFeature: React.FC<AudioJournalProps> = ({ entries, onEntriesUpdate }) => {
-    const [recordingState, setRecordingState] = useState<RecordingState>('idle');
-    const [error, setError] = useState<string | null>(null);
-    const [searchQuery, setSearchQuery] = useState('');
-    const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
-    const [editingText, setEditingText] = useState('');
+  // Load previous journals
+  useEffect(() => {
+    fetchJournals();
+  }, [userId]);
+
+  const fetchJournals = async () => {
+    const { data, error } = await supabase
+      .from('journal_entries')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
     
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-    const audioChunksRef = useRef<Blob[]>([]);
+    if (data) setRecordings(data);
+  };
 
-    const handleStartRecording = async () => {
-        if (recordingState !== 'idle') return;
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorderRef.current = new MediaRecorder(stream);
-            mediaRecorderRef.current.ondataavailable = event => {
-                audioChunksRef.current.push(event.data);
-            };
-            mediaRecorderRef.current.onstop = handleProcessRecording;
-            audioChunksRef.current = [];
-            mediaRecorderRef.current.start();
-            setRecordingState('recording');
-            setError(null);
-        } catch (err) {
-            console.error('Error starting recording:', err);
-            setError('Could not access microphone. Please grant permission.');
+  const startRecording = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const mediaRecorder = new MediaRecorder(stream);
+      mediaRecorderRef.current = mediaRecorder;
+      audioChunksRef.current = [];
+
+      mediaRecorder.ondataavailable = (event) => {
+        if (event.data.size > 0) {
+          audioChunksRef.current.push(event.data);
         }
-    };
+      };
 
-    const handleStopRecording = () => {
-        if (mediaRecorderRef.current && recordingState === 'recording') {
-            mediaRecorderRef.current.stop();
-            mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
-            setRecordingState('processing');
-        }
-    };
-
-    const handleProcessRecording = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        const audioFile = new File([audioBlob], "recording.webm", { type: "audio/webm" });
-
-        try {
-            const apiKey = localStorage.getItem('GROQ_API_KEY');
-            
-            if (!apiKey) {
-                throw new Error('No API key found');
-            }
-
-            // Initialize Groq
-            const groq = new Groq({
-                apiKey: apiKey,
-                dangerouslyAllowBrowser: true
-            });
-
-            // Step 1: Transcribe audio using Groq Whisper
-            const transcription = await groq.audio.transcriptions.create({
-                file: audioFile,
-                model: "whisper-large-v3",
-                response_format: "json",
-                language: "en",
-            });
-
-            const transcript = transcription.text;
-
-            // Step 2: Generate title from transcript using Groq chat
-            const chatCompletion = await groq.chat.completions.create({
-                messages: [
-                    {
-                        role: "system",
-                        content: "You are a helpful assistant that creates short, fitting titles for journal entries. Respond with ONLY the title, nothing else. Keep it to 5 words or less."
-                    },
-                    {
-                        role: "user",
-                        content: `Create a short title (5 words or less) for this journal entry:\n\n${transcript}`
-                    }
-                ],
-                model: "llama-3.1-8b-instant",
-                temperature: 0.7,
-                max_tokens: 20,
-            });
-
-            const title = chatCompletion.choices[0]?.message?.content?.trim() || "Untitled Entry";
-
-            // Create new entry
-            const newEntry: AudioEntry = {
-                id: `audio_${Date.now()}`,
-                title: title,
-                transcript: transcript,
-                audioSrc: URL.createObjectURL(audioBlob),
-                timestamp: Date.now(),
-            };
-            onEntriesUpdate([newEntry, ...entries]);
-
-        } catch (err) {
-            console.error("Error processing audio:", err);
-            setError("AI could not process the audio. Please try again.");
-        } finally {
-            setRecordingState('idle');
-        }
-    };
-    
-    const handleEdit = (entry: AudioEntry) => {
-        setEditingEntryId(entry.id);
-        setEditingText(entry.title);
-    };
-
-    const handleSaveEdit = (entryId: string) => {
-        const updatedEntries = entries.map(e => e.id === entryId ? { ...e, title: editingText } : e);
-        onEntriesUpdate(updatedEntries);
-        setEditingEntryId(null);
-    };
-
-    const filteredEntries = useMemo(() => {
-        if (!searchQuery) return entries;
-        return entries.filter(entry =>
-            entry.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            entry.transcript.toLowerCase().includes(searchQuery.toLowerCase())
-        );
-    }, [entries, searchQuery]);
-
-    const getButton = () => {
-        switch(recordingState) {
-            case 'idle':
-                return <button onClick={handleStartRecording} className="bg-yellow-400 text-black font-bold py-3 px-6 rounded-full flex items-center gap-2 hover:scale-105 transition-transform"><Icon name="talk" className="w-5 h-5"/> Record New Entry</button>
-            case 'recording':
-                return <button onClick={handleStopRecording} className="bg-red-500 text-white font-bold py-3 px-6 rounded-full flex items-center gap-2 animate-pulse"><Icon name="pause" className="w-5 h-5"/> Stop Recording</button>
-            case 'processing':
-                return <button disabled className="bg-slate-500 text-white font-bold py-3 px-6 rounded-full flex items-center gap-2 cursor-not-allowed"><Icon name="analyze" className="w-5 h-5 animate-spin"/> Processing...</button>
-        }
+      mediaRecorder.onstop = handleStopRecording;
+      mediaRecorder.start();
+      setIsRecording(true);
+    } catch (err) {
+      console.error("Error accessing microphone:", err);
+      alert("Microphone access denied.");
     }
+  };
 
-    return (
-        <div className="p-4 h-full flex flex-col">
-            <div className="text-center mb-6">
-                <h2 className="text-3xl font-brand holographic-text">Audio Journal</h2>
-                <p className="text-slate-300">Your personal space for thoughts and reflections.</p>
-            </div>
-            <div className="flex flex-col items-center gap-4 mb-6">
-                {getButton()}
-                <input
-                    type="text"
-                    placeholder="Search journal..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full max-w-md p-2 border border-white/20 bg-black/30 rounded-full focus:ring-2 focus:ring-[#FFD700] focus:outline-none transition text-white placeholder:text-slate-400 text-center"
-                />
-            </div>
-            {error && <p className="text-center text-red-400 mb-4">{error}</p>}
-            <div className="flex-grow overflow-y-auto space-y-3 pr-2">
-                {filteredEntries.length === 0 ? (
-                    <div className="text-center text-slate-400 pt-10">
-                        <Icon name="journal" className="w-16 h-16 mx-auto mb-4 opacity-50"/>
-                        <p>{searchQuery ? 'No entries match your search.' : 'Your audio entries will appear here.'}</p>
-                    </div>
-                ) : (
-                    filteredEntries.map(entry => (
-                        <div key={entry.id} className="bg-black/20 p-4 rounded-lg border border-white/10">
-                            {editingEntryId === entry.id ? (
-                                <div className="flex items-center gap-2 mb-2">
-                                    <input 
-                                        type="text"
-                                        value={editingText}
-                                        onChange={(e) => setEditingText(e.target.value)}
-                                        className="flex-grow p-1 bg-slate-800 rounded text-yellow-300 font-brand text-lg"
-                                        onKeyPress={(e) => e.key === 'Enter' && handleSaveEdit(entry.id)}
-                                    />
-                                    <button onClick={() => handleSaveEdit(entry.id)} className="bg-green-500 text-white px-3 py-1 rounded">Save</button>
-                                    <button onClick={() => setEditingEntryId(null)} className="bg-gray-500 text-white px-3 py-1 rounded">Cancel</button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center justify-between mb-2">
-                                    <h3 className="font-bold text-yellow-300 font-brand text-lg">{entry.title}</h3>
-                                    <button onClick={() => handleEdit(entry)} className="text-slate-400 hover:text-white"><Icon name="edit" className="w-4 h-4"/></button>
-                                </div>
-                            )}
-                            <p className="text-xs text-slate-400 mb-2">{new Date(entry.timestamp).toLocaleString()}</p>
-                            <audio src={entry.audioSrc} controls className="w-full h-10 mb-2" />
-                            <details className="text-slate-300 text-sm">
-                                <summary className="cursor-pointer font-semibold">View Transcript</summary>
-                                <p className="pt-2 whitespace-pre-wrap">{entry.transcript}</p>
-                            </details>
-                        </div>
-                    ))
-                )}
-            </div>
+  const stopRecording = () => {
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop();
+      setIsRecording(false);
+      
+      // Stop all tracks to release mic
+      mediaRecorderRef.current.stream.getTracks().forEach(track => track.stop());
+    }
+  };
+
+  const handleStopRecording = async () => {
+    setUploading(true);
+    const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+    const fileName = `${userId}/${Date.now()}.webm`;
+
+    try {
+      // 1. Upload to Supabase Storage
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('audio-journals')
+        .upload(fileName, audioBlob);
+
+      if (uploadError) throw uploadError;
+
+      // 2. Get Public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('audio-journals')
+        .getPublicUrl(fileName);
+
+      // 3. Save Metadata to DB
+      const { error: dbError } = await supabase
+        .from('journal_entries')
+        .insert({
+          user_id: userId,
+          audio_url: publicUrl,
+          mood: 'Reflective' // You can add a mood selector later
+        });
+
+      if (dbError) throw dbError;
+
+      // Refresh list
+      fetchJournals();
+
+    } catch (error) {
+      console.error('Error saving journal:', error);
+      alert('Failed to save journal.');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  return (
+    <div className="h-full flex flex-col bg-slate-900 p-6 overflow-y-auto pb-24">
+      <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+        🎙️ Audio Journal
+      </h2>
+
+      {/* Recorder Card */}
+      <div className="bg-slate-800 rounded-2xl p-8 text-center border border-slate-700 mb-8 shadow-lg">
+        <div className="mb-6 text-purple-200">
+          {isRecording ? "🔴 Recording... Speak from your heart." : "Record a message for the future."}
         </div>
-    );
+
+        <button
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={uploading}
+          className={`w-24 h-24 rounded-full flex items-center justify-center text-4xl transition-all ${
+            isRecording 
+              ? 'bg-red-500 animate-pulse shadow-red-500/50' 
+              : 'bg-purple-600 hover:bg-purple-500 shadow-purple-600/50'
+          } shadow-xl mx-auto`}
+        >
+          {uploading ? '⏳' : isRecording ? '⏹️' : '🎙️'}
+        </button>
+        
+        {uploading && <p className="text-xs text-slate-400 mt-4">Saving to cloud...</p>}
+      </div>
+
+      {/* List of Recordings */}
+      <h3 className="text-lg font-semibold text-slate-300 mb-4">Previous Entries</h3>
+      
+      <div className="space-y-3">
+        {recordings.length === 0 ? (
+          <p className="text-slate-500 text-center text-sm py-8">No journals yet.</p>
+        ) : (
+          recordings.map((rec) => (
+            <div key={rec.id} className="bg-slate-800/50 border border-slate-700 rounded-xl p-4 flex flex-col gap-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-300">
+                  {new Date(rec.created_at).toLocaleDateString()} at {new Date(rec.created_at).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}
+                </span>
+                <span className="text-xs bg-slate-700 px-2 py-1 rounded text-slate-400">
+                  {rec.mood}
+                </span>
+              </div>
+              
+              <audio controls src={rec.audio_url} className="w-full h-8 rounded-lg" />
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default AudioJournalFeature;
