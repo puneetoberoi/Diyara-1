@@ -3,8 +3,6 @@ export enum FeatureTab {
   Chat = 'chat',
   AudioJournal = 'AudioJournal',
   Create = 'Create',
-  Gallery = 'Gallery',
-  Garden = 'Garden',
   Talk = 'Talk',
 }
 
