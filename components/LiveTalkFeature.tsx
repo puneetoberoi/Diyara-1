@@ -12,55 +12,84 @@ const MODEL_ID = 'meta-llama/Meta-Llama-3-8B-Instruct';
 const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
   const [isListening, setIsListening] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [transcript, setTranscript] = useState("Tap the mic to talk!");
+  const [transcript, setTranscript] = useState("Tap the mic to start talking...");
   const [aiResponse, setAiResponse] = useState("");
-
+  
+  // Refs to manage the continuous loop without re-rendering issues
   const recognitionRef = useRef<any>(null);
+  const isListeningRef = useRef(false); // Tracks "Intent to listen"
+  const silenceTimer = useRef<any>(null);
 
   useEffect(() => {
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = false;
+      recognitionRef.current.continuous = true; // <--- KEY: Keeps listening
       recognitionRef.current.interimResults = true;
-      // Auto-detect device language (e.g., 'en-US', 'hi-IN', 'pa-IN')
       recognitionRef.current.lang = navigator.language || 'en-US';
+
+      recognitionRef.current.onresult = (event: any) => {
+        // Get the latest result
+        const resultIndex = event.results.length - 1;
+        const result = event.results[resultIndex];
+        const text = result[0].transcript;
+        
+        setTranscript(text);
+
+        // Detect "Final" speech (user stopped talking for a split second)
+        if (result.isFinal) {
+          handleSendToAI(text);
+        }
+        
+        // Reset silence timer on every word spoken
+        clearTimeout(silenceTimer.current);
+      };
+
+      recognitionRef.current.onend = () => {
+        // If we are supposed to be listening but it stopped (e.g., silence), restart it
+        if (isListeningRef.current) {
+          try {
+            recognitionRef.current.start();
+          } catch (e) {
+            // Already started, ignore
+          }
+        } else {
+          setIsListening(false);
+        }
+      };
     } else {
       setTranscript("Browser doesn't support speech.");
     }
+
+    // Cleanup
+    return () => {
+      isListeningRef.current = false;
+      if (recognitionRef.current) recognitionRef.current.stop();
+    };
   }, []);
 
   const toggleListening = () => {
     if (isListening) {
+      // STOP
+      isListeningRef.current = false;
       recognitionRef.current.stop();
       setIsListening(false);
+      window.speechSynthesis.cancel();
     } else {
+      // START
       if (!recognitionRef.current) return;
       window.speechSynthesis.cancel();
       
+      isListeningRef.current = true;
       recognitionRef.current.start();
       setIsListening(true);
       setTranscript("Listening...");
       setAiResponse("");
-
-      recognitionRef.current.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        setTranscript(text);
-      };
-
-      recognitionRef.current.onend = () => {
-        setIsListening(false);
-        // Only send if we actually heard something substantial
-        if (recognitionRef.current && transcript !== "Listening..." && transcript.length > 1) {
-          handleSendToAI();
-        }
-      };
     }
   };
 
-  const handleSendToAI = async () => {
-    const textToSend = document.getElementById('transcript-display')?.innerText || "";
-    if (textToSend.length < 2 || textToSend === "Listening...") return;
+  const handleSendToAI = async (textToSend: string) => {
+    if (textToSend.length < 2) return;
 
     setAiResponse("Thinking...");
 
@@ -76,11 +105,14 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
           messages: [
             { 
               role: "system", 
-              content: `You are Diyara, a giggly 2-year-old child. 
-                        You are talking to ${profile.relation}. 
-                        IMPORTANT: Detect the language the user is speaking (English, Hindi, Punjabi, etc) and reply IN THAT SAME LANGUAGE.
-                        Keep sentences very short (5-10 words). 
-                        Giggle often like *giggles*.` 
+              content: `You are Diyara, a 2-year-old girl.
+                        User is: ${profile.relation}.
+                        
+                        RULES:
+                        1. Reply in short, simple sentences (max 10 words).
+                        2. Do NOT just say "*giggles*". SPEAK actual words.
+                        3. Be cute and curious.
+                        4. Reply in the SAME LANGUAGE as the user.` 
             },
             { role: "user", content: textToSend }
           ]
@@ -88,29 +120,51 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
       });
 
       const data = await response.json();
-      const reply = data.choices?.[0]?.message?.content || "*Giggles*";
+      const reply = data.choices?.[0]?.message?.content || "I didn't hear you!";
+      
       setAiResponse(reply);
       speakOutLoud(reply);
 
     } catch (error) {
       console.error(error);
-      setAiResponse("Oopsie!");
     }
   };
 
+  // --- NEW VOICE ENGINE ---
   const speakOutLoud = (text: string) => {
     if (!window.speechSynthesis) return;
+    
+    // Temporarily pause listening so the mic doesn't hear the AI speaker
+    if (recognitionRef.current) recognitionRef.current.stop();
+
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Auto-match the voice to the device language if possible
-    utterance.lang = navigator.language || 'en-US';
-    
-    // Child-like voice settings
-    utterance.pitch = 1.6; 
-    utterance.rate = 1.1;  
-    
+    // 1. Find a Female Voice
+    const voices = window.speechSynthesis.getVoices();
+    const preferredVoice = voices.find(v => 
+      v.name.includes('Google US English') || 
+      v.name.includes('Samantha') || 
+      v.name.includes('Female') ||
+      v.name.includes('Zira')
+    );
+
+    if (preferredVoice) utterance.voice = preferredVoice;
+
+    // 2. Child-like Settings
+    utterance.pitch = 1.4; // High pitch (child)
+    utterance.rate = 1.1;  // Slightly fast
+    utterance.volume = 1;
+
     utterance.onstart = () => setIsSpeaking(true);
-    utterance.onend = () => setIsSpeaking(false);
+    
+    utterance.onend = () => {
+      setIsSpeaking(false);
+      // Resume listening immediately after speaking finishes
+      if (isListeningRef.current && recognitionRef.current) {
+        try { recognitionRef.current.start(); } catch(e) {}
+      }
+    };
+    
     window.speechSynthesis.speak(utterance);
   };
 
@@ -131,7 +185,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ profile }) => {
           </div>
 
           <div className="absolute -top-12 bg-white text-black px-4 py-2 rounded-xl rounded-br-none font-bold animate-bounce shadow-lg">
-            {isListening ? "👂 Listening..." : isSpeaking ? "🗣️ Speaking..." : "Tap mic!"}
+            {isSpeaking ? "🗣️ Diyara Speaking..." : isListening ? "👂 Listening..." : "Tap to start"}
           </div>
         </div>
       </div>
