@@ -13,8 +13,6 @@ const BottomNav: React.FC<BottomNavProps> = ({ activeTab, setActiveTab }) => {
     { id: FeatureTab.Chat, icon: 'chat', label: 'Chat' },
     { id: FeatureTab.Create, icon: 'create', label: 'Create' },
     { id: FeatureTab.Talk, icon: 'talk', label: 'Talk' },
-    { id: FeatureTab.Gallery, icon: 'gallery', label: 'Gallery' },
-    { id: FeatureTab.Garden, icon: 'garden', label: 'Garden' },
     { id: FeatureTab.AudioJournal, icon: 'journal', label: 'Journal' },
   ] as const;
 
