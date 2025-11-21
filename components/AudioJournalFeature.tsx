@@ -43,7 +43,6 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
       if (dbError) throw dbError;
 
       // 2. Delete from Storage (Optional but clean)
-      // Extract filename from URL roughly
       const path = audioUrl.split('/audio-journals/')[1];
       if (path) {
         await supabase.storage.from('audio-journals').remove([path]);
@@ -120,7 +119,7 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
 
     } catch (error) {
       console.error('Error saving journal:', error);
-      alert('Failed to save journal.');
+      alert('Failed to save journal. Check DB policies.');
     } finally {
       setUploading(false);
     }
@@ -173,16 +172,10 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId }) => {
                     {new Date(rec.created_at).toLocaleDateString()}
                   </span>
                 </div>
-                
-                <button 
-                  onClick={() => handleDelete(rec.id, rec.audio_url)}
-                  className="text-slate-500 hover:text-red-400 p-2 transition-colors"
-                  title="Delete Entry"
-                >
+                <button onClick={() => handleDelete(rec.id, rec.audio_url)} className="text-slate-500 hover:text-red-400 p-2 transition-colors">
                   🗑️
                 </button>
               </div>
-              
               <audio controls src={rec.audio_url} className="w-full h-8 rounded-lg" />
             </div>
           ))
