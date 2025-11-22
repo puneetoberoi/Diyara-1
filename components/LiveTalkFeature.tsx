@@ -40,7 +40,6 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioLevel, isActive 
       gradient.addColorStop(1, '#a855f7');
       
       barsRef.current.forEach((bar, i) => {
-        // Smoothly animate bars
         const targetHeight = isActive ? 
           Math.random() * audioLevel * canvas.height : 0;
         barsRef.current[i] += (targetHeight - bar) * 0.3;
@@ -78,6 +77,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({ audioLevel, isActive 
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
 const MODEL_ID = 'mistralai/Mistral-7B-Instruct-v0.1';
 
+// Debug mode - set to false in production
+const DEBUG_MODE = true;
+
 const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
   // State Management
   const [sessionState, setSessionState] = useState<'idle' | 'connecting' | 'listening' | 'thinking' | 'speaking'>('idle');
@@ -86,40 +88,58 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
   const [audioLevel, setAudioLevel] = useState(0);
   const [error, setError] = useState('');
   const [isAISpeaking, setIsAISpeaking] = useState(false);
-  const [conversationStarted, setConversationStarted] = useState(false);
+  const [speechSupported, setSpeechSupported] = useState(false);
   
-  // Refs for audio handling
+  // Refs
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
   const audioContextRef = useRef<AudioContext | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const micStreamRef = useRef<MediaStream | null>(null);
-  const speechQueueRef = useRef<string[]>([]);
   const messageIdCounterRef = useRef(0);
   const currentUserMessageIdRef = useRef<number | null>(null);
-  const currentAIMessageIdRef = useRef<number | null>(null);
   const silenceTimerRef = useRef<NodeJS.Timeout | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const isProcessingRef = useRef(false);
-  const lastTranscriptRef = useRef('');
+  const isActiveRef = useRef(false);
+  const finalTranscriptRef = useRef('');
+
+  // Debug logging
+  const debugLog = (message: string, data?: any) => {
+    if (DEBUG_MODE) {
+      console.log(`🎙️ [LiveTalk] ${message}`, data || '');
+    }
+  };
 
   // Auto-scroll to latest message
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  // Initialize Speech Recognition
+  // Initialize Speech Recognition ONCE
   useEffect(() => {
-    const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    debugLog('Initializing speech recognition...');
+    
+    const SpeechRecognition = (window as any).SpeechRecognition || 
+                              (window as any).webkitSpeechRecognition;
     
     if (SpeechRecognition) {
+      debugLog('Speech Recognition API found');
+      setSpeechSupported(true);
+      
       const recognition = new SpeechRecognition();
       recognition.continuous = true;
       recognition.interimResults = true;
-      recognition.lang = navigator.language || 'en-US';
+      recognition.lang = 'en-US';
       recognition.maxAlternatives = 1;
 
+      recognition.onstart = () => {
+        debugLog('Recognition started');
+        finalTranscriptRef.current = '';
+      };
+
       recognition.onresult = (event: any) => {
+        debugLog('Recognition result received', event.results.length);
+        
         let interimTranscript = '';
         let finalTranscript = '';
 
@@ -132,80 +152,111 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
           }
         }
 
-        // Update current transcript for live display
-        const fullTranscript = finalTranscript || interimTranscript;
-        if (fullTranscript.trim()) {
-          setCurrentTranscript(fullTranscript);
-          handleTranscription(fullTranscript, !finalTranscript);
+        debugLog('Transcripts:', { final: finalTranscript, interim: interimTranscript });
+
+        // Show current transcript
+        const display = finalTranscript || interimTranscript;
+        if (display.trim()) {
+          setCurrentTranscript(display);
+          updateUserMessage(display, !finalTranscript);
         }
 
-        // If we have final transcript, process it
-        if (finalTranscript.trim() && finalTranscript !== lastTranscriptRef.current) {
-          lastTranscriptRef.current = finalTranscript;
-          // Reset silence timer
+        // Process final transcript
+        if (finalTranscript.trim() && isActiveRef.current) {
+          finalTranscriptRef.current += finalTranscript;
+          
+          // Clear existing timer
           if (silenceTimerRef.current) {
             clearTimeout(silenceTimerRef.current);
           }
           
-          // Wait for pause in speech before processing
+          // Set new timer for silence detection
           silenceTimerRef.current = setTimeout(() => {
-            if (!isProcessingRef.current && finalTranscript.trim().length > 2) {
-              processUserInput(finalTranscript.trim());
+            debugLog('Silence detected, processing:', finalTranscriptRef.current);
+            if (finalTranscriptRef.current.trim().length > 2 && isActiveRef.current) {
+              processUserInput(finalTranscriptRef.current.trim());
+              finalTranscriptRef.current = '';
             }
-          }, 1000); // 1 second pause = end of sentence
+          }, 1500); // 1.5 second silence
         }
       };
 
       recognition.onerror = (event: any) => {
-        console.error('Speech recognition error:', event.error);
-        if (event.error === 'no-speech') {
-          // Restart recognition
+        debugLog('Recognition error:', event.error);
+        
+        if (event.error === 'not-allowed') {
+          setError('Microphone permission denied. Please allow access.');
+        } else if (event.error === 'no-speech') {
+          // This is normal, just restart
+          if (isActiveRef.current) {
+            setTimeout(() => {
+              if (isActiveRef.current) {
+                try {
+                  recognition.start();
+                } catch (e) {
+                  debugLog('Restart failed:', e);
+                }
+              }
+            }, 100);
+          }
+        } else {
+          setError(`Speech error: ${event.error}`);
+        }
+      };
+
+      recognition.onend = () => {
+        debugLog('Recognition ended');
+        // Restart if session is still active
+        if (isActiveRef.current && sessionState === 'listening') {
           setTimeout(() => {
-            if (sessionState === 'listening') {
+            if (isActiveRef.current) {
               try {
                 recognition.start();
-              } catch {}
+                debugLog('Recognition restarted');
+              } catch (e) {
+                debugLog('Restart failed:', e);
+              }
             }
           }, 100);
         }
       };
 
-      recognition.onend = () => {
-        // Auto-restart if session is active
-        if (sessionState === 'listening' && !isProcessingRef.current) {
-          try {
-            recognition.start();
-          } catch {}
-        }
-      };
-
       recognitionRef.current = recognition;
+      
+    } else {
+      debugLog('Speech Recognition not supported');
+      setSpeechSupported(false);
+      setError('Speech recognition not supported in this browser. Try Chrome or Edge.');
     }
 
     // Initialize voices
     if ('speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
-        window.speechSynthesis.getVoices();
+        const voices = window.speechSynthesis.getVoices();
+        debugLog('Voices loaded:', voices.length);
       };
     }
 
     return () => {
+      debugLog('Cleaning up...');
+      isActiveRef.current = false;
       if (recognitionRef.current) {
         try {
           recognitionRef.current.abort();
         } catch {}
       }
-      stopAllAudio();
+      if (silenceTimerRef.current) {
+        clearTimeout(silenceTimerRef.current);
+      }
     };
-  }, [sessionState]);
+  }, []); // Empty dependency - run once
 
-  // Handle live transcription display
-  const handleTranscription = (text: string, isInterim: boolean) => {
+  // Update user message in real-time
+  const updateUserMessage = (text: string, isInterim: boolean) => {
     if (!text.trim()) return;
 
     if (currentUserMessageIdRef.current === null) {
-      // Create new user message
       const id = messageIdCounterRef.current++;
       currentUserMessageIdRef.current = id;
       setMessages(prev => [...prev, {
@@ -216,7 +267,6 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
         isFinal: false
       }]);
     } else {
-      // Update existing message
       setMessages(prev => prev.map(msg => 
         msg.id === currentUserMessageIdRef.current 
           ? { ...msg, text: text, isFinal: !isInterim }
@@ -225,11 +275,19 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     }
   };
 
-  // Process user input and get AI response
+  // Process user input
   const processUserInput = async (userText: string) => {
-    if (!userText.trim() || isProcessingRef.current) return;
+    debugLog('Processing user input:', userText);
     
-    isProcessingRef.current = true;
+    if (!userText.trim() || !isActiveRef.current) return;
+    
+    // Stop listening temporarily
+    if (recognitionRef.current) {
+      try {
+        recognitionRef.current.stop();
+      } catch {}
+    }
+    
     setSessionState('thinking');
     
     // Finalize user message
@@ -242,30 +300,29 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
       currentUserMessageIdRef.current = null;
     }
 
-    // Interrupt any ongoing speech
-    stopAllAudio();
+    // Stop any ongoing speech
+    synthRef.current.cancel();
 
-    // Get AI response
     try {
       const aiResponse = await getAIResponse(userText);
-      if (aiResponse) {
-        streamAIResponse(aiResponse);
+      debugLog('AI Response received:', aiResponse);
+      
+      if (aiResponse && isActiveRef.current) {
+        await streamAIResponse(aiResponse);
       }
     } catch (error) {
-      console.error('AI Error:', error);
+      debugLog('AI Error:', error);
       const fallback = getFallbackResponse();
-      streamAIResponse(fallback);
-    } finally {
-      isProcessingRef.current = false;
-      if (sessionState !== 'idle') {
-        setSessionState('listening');
+      if (isActiveRef.current) {
+        await streamAIResponse(fallback);
       }
     }
   };
 
-  // Get AI response from Bytez
+  // Get AI response
   const getAIResponse = async (userText: string): Promise<string> => {
     if (!BYTEZ_API_KEY) {
+      debugLog('No API key, using fallback');
       return getFallbackResponse();
     }
 
@@ -281,20 +338,15 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
           messages: [
             {
               role: 'system',
-              content: `You are Diyara, a sweet 2-year-old girl talking to ${profile.relation || 'someone special'}.
-                       Respond in 1-2 short sentences (max 15 words total).
-                       Be playful, cute, and child-like.
-                       Sometimes mispronounce words adorably.
-                       Show excitement and emotion!`
+              content: `You are Diyara, a 2-year-old girl. Reply in max 10 words. Be cute and playful.`
             },
             {
               role: 'user',
               content: userText
             }
           ],
-          max_tokens: 50,
-          temperature: 0.8,
-          stream: false
+          max_tokens: 30,
+          temperature: 0.8
         })
       });
 
@@ -306,128 +358,139 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
       return data.choices?.[0]?.message?.content || getFallbackResponse();
       
     } catch (error) {
-      console.error('API Error:', error);
+      debugLog('API call failed:', error);
       return getFallbackResponse();
     }
   };
 
-  // Stream AI response with typing effect
-  const streamAIResponse = (text: string) => {
-    // Create AI message
-    const id = messageIdCounterRef.current++;
-    currentAIMessageIdRef.current = id;
-    
-    // Add message with empty text
-    setMessages(prev => [...prev, {
-      id,
-      speaker: 'ai',
-      text: '',
-      timestamp: new Date(),
-      isFinal: false
-    }]);
+  // Stream AI response
+  const streamAIResponse = async (text: string) => {
+    return new Promise<void>((resolve) => {
+      const id = messageIdCounterRef.current++;
+      
+      setMessages(prev => [...prev, {
+        id,
+        speaker: 'ai',
+        text: '',
+        timestamp: new Date(),
+        isFinal: false
+      }]);
 
-    // Simulate typing effect
-    let currentText = '';
-    const words = text.split(' ');
-    let wordIndex = 0;
+      // Type out the response
+      let currentText = '';
+      const chars = text.split('');
+      let charIndex = 0;
 
-    const typeWord = () => {
-      if (wordIndex < words.length) {
-        currentText += (wordIndex > 0 ? ' ' : '') + words[wordIndex];
-        setMessages(prev => prev.map(msg => 
-          msg.id === id ? { ...msg, text: currentText } : msg
-        ));
-        wordIndex++;
-        setTimeout(typeWord, 100); // Adjust speed here
-      } else {
-        // Finalize message and speak
-        setMessages(prev => prev.map(msg => 
-          msg.id === id ? { ...msg, isFinal: true } : msg
-        ));
-        currentAIMessageIdRef.current = null;
-        speakText(text);
-      }
-    };
+      const typeChar = () => {
+        if (charIndex < chars.length && isActiveRef.current) {
+          currentText += chars[charIndex];
+          setMessages(prev => prev.map(msg => 
+            msg.id === id ? { ...msg, text: currentText } : msg
+          ));
+          charIndex++;
+          setTimeout(typeChar, 30);
+        } else {
+          // Finalize and speak
+          setMessages(prev => prev.map(msg => 
+            msg.id === id ? { ...msg, isFinal: true } : msg
+          ));
+          
+          if (isActiveRef.current) {
+            speakText(text);
+          }
+          resolve();
+        }
+      };
 
-    typeWord();
+      typeChar();
+    });
   };
 
-  // Text-to-speech with voice queue
+  // Text-to-speech
   const speakText = (text: string) => {
-    if (!('speechSynthesis' in window)) return;
+    if (!('speechSynthesis' in window) || !isActiveRef.current) return;
     
+    debugLog('Speaking:', text);
     setSessionState('speaking');
     setIsAISpeaking(true);
     
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Get child-like voice
     const voices = synthRef.current.getVoices();
     const preferredVoice = voices.find(v => 
-      v.name.toLowerCase().includes('child') ||
       v.name.toLowerCase().includes('female') ||
-      v.name.includes('Samantha') ||
-      v.name.includes('Victoria')
+      v.name.includes('Samantha')
     );
     
     if (preferredVoice) {
       utterance.voice = preferredVoice;
     }
 
-    // Make it sound child-like
-    utterance.pitch = 1.6;
-    utterance.rate = 1.0;
+    utterance.pitch = 1.5;
+    utterance.rate = 0.95;
     utterance.volume = 1.0;
     
     utterance.onend = () => {
+      debugLog('Speech ended');
       setIsAISpeaking(false);
-      if (sessionState !== 'idle') {
+      
+      if (isActiveRef.current) {
         setSessionState('listening');
+        setCurrentTranscript('');
+        finalTranscriptRef.current = '';
+        
         // Resume listening
-        try {
-          recognitionRef.current?.start();
-        } catch {}
+        setTimeout(() => {
+          if (isActiveRef.current && recognitionRef.current) {
+            try {
+              recognitionRef.current.start();
+              debugLog('Resumed listening');
+            } catch (e) {
+              debugLog('Resume failed:', e);
+            }
+          }
+        }, 100);
       }
     };
 
-    utterance.onerror = () => {
+    utterance.onerror = (event) => {
+      debugLog('Speech error:', event);
       setIsAISpeaking(false);
-      setSessionState('listening');
+      if (isActiveRef.current) {
+        setSessionState('listening');
+      }
     };
 
-    // Speak
-    synthRef.current.cancel(); // Cancel any ongoing speech
+    synthRef.current.cancel();
     synthRef.current.speak(utterance);
   };
 
-  // Stop all audio
-  const stopAllAudio = () => {
-    synthRef.current.cancel();
-    speechQueueRef.current = [];
-    setIsAISpeaking(false);
-  };
-
-  // Get fallback response
+  // Fallback responses
   const getFallbackResponse = (): string => {
     const responses = [
-      "Hehe! You funny!",
-      "Me love talking you!",
-      "Yay yay yay!",
-      "Me happy now!",
-      "You best friend!",
-      "Play more please!",
-      "Me Diyara! Hi hi!",
-      "Ooh that cool!",
-      "Me think... um... yay!",
-      "Wanna play game?"
+      "Hi hi! Me happy!",
+      "You funny! Hehe!",
+      "Me love you!",
+      "Yay! Fun fun!",
+      "Ooh pretty!",
+      "Me Diyara!",
+      "Play more!",
+      "You nice!"
     ];
     return responses[Math.floor(Math.random() * responses.length)];
   };
 
-  // Setup audio analyzer for visualizer
+  // Setup audio analyzer
   const setupAudioAnalyzer = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        } 
+      });
+      
       micStreamRef.current = stream;
       
       audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
@@ -441,7 +504,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
       const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
       
       const checkAudioLevel = () => {
-        if (analyserRef.current && sessionState !== 'idle') {
+        if (analyserRef.current && isActiveRef.current) {
           analyserRef.current.getByteFrequencyData(dataArray);
           const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
           setAudioLevel(average / 255);
@@ -450,40 +513,42 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
       };
       
       checkAudioLevel();
+      debugLog('Audio analyzer setup complete');
+      
     } catch (error) {
-      console.error('Microphone access error:', error);
-      setError('Microphone access required');
+      debugLog('Microphone error:', error);
+      setError('Microphone access required. Please allow access and try again.');
+      throw error;
     }
   };
 
-  // Toggle conversation session
+  // Toggle session
   const toggleSession = async () => {
     if (sessionState !== 'idle') {
       // Stop session
-      setSessionState('idle');
-      setConversationStarted(false);
-      stopAllAudio();
+      debugLog('Stopping session');
       
-      // Stop recognition
+      isActiveRef.current = false;
+      setSessionState('idle');
+      synthRef.current.cancel();
+      
       if (recognitionRef.current) {
         try {
           recognitionRef.current.stop();
+          recognitionRef.current.abort();
         } catch {}
       }
       
-      // Stop audio context
       if (audioContextRef.current) {
         audioContextRef.current.close();
         audioContextRef.current = null;
       }
       
-      // Stop mic stream
       if (micStreamRef.current) {
         micStreamRef.current.getTracks().forEach(track => track.stop());
         micStreamRef.current = null;
       }
       
-      // Clear timers
       if (silenceTimerRef.current) {
         clearTimeout(silenceTimerRef.current);
       }
@@ -491,54 +556,85 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
       setAudioLevel(0);
       setCurrentTranscript('');
       currentUserMessageIdRef.current = null;
-      currentAIMessageIdRef.current = null;
-      isProcessingRef.current = false;
       
     } else {
       // Start session
+      debugLog('Starting session');
+      
+      if (!speechSupported) {
+        setError('Speech recognition not supported. Please use Chrome or Edge browser.');
+        return;
+      }
+      
       setError('');
-      setSessionState('connecting');
       setMessages([]);
-      setConversationStarted(true);
+      setSessionState('connecting');
       
-      await setupAudioAnalyzer();
-      
-      // Start recognition
-      if (recognitionRef.current) {
-        try {
-          await recognitionRef.current.start();
-          setSessionState('listening');
-          
-          // Greet user
-          setTimeout(() => {
-            const greeting = `Hi ${profile.relation || 'friend'}! Me Diyara! Wanna talk?`;
-            streamAIResponse(greeting);
-          }, 500);
-          
-        } catch (error) {
-          console.error('Recognition start error:', error);
-          setError('Could not start speech recognition');
-          setSessionState('idle');
+      try {
+        await setupAudioAnalyzer();
+        isActiveRef.current = true;
+        
+        // Start recognition
+        if (recognitionRef.current) {
+          try {
+            await recognitionRef.current.start();
+            setSessionState('listening');
+            debugLog('Session started successfully');
+            
+            // Initial greeting
+            setTimeout(() => {
+              if (isActiveRef.current) {
+                const greeting = `Hi ${profile.relation || 'friend'}! Me Diyara!`;
+                streamAIResponse(greeting);
+              }
+            }, 500);
+            
+          } catch (error) {
+            debugLog('Recognition start error:', error);
+            setError('Could not start speech recognition. Please try again.');
+            setSessionState('idle');
+            isActiveRef.current = false;
+          }
         }
+      } catch (error) {
+        debugLog('Setup error:', error);
+        setSessionState('idle');
+        isActiveRef.current = false;
       }
     }
   };
 
-  // Get button display state
+  // Manual input fallback
+  const handleManualInput = () => {
+    const text = prompt('Type your message to Diyara:');
+    if (text && text.trim()) {
+      if (!isActiveRef.current) {
+        toggleSession().then(() => {
+          setTimeout(() => {
+            processUserInput(text);
+          }, 1000);
+        });
+      } else {
+        processUserInput(text);
+      }
+    }
+  };
+
+  // Button state
   const getButtonDisplay = () => {
     switch (sessionState) {
       case 'idle':
-        return { text: 'Start Chat', icon: '🎙️', pulseColor: '' };
+        return { text: 'Start Chat', emoji: '🎙️', color: 'from-purple-600 to-pink-600' };
       case 'connecting':
-        return { text: 'Connecting...', icon: '⏳', pulseColor: 'bg-yellow-400' };
+        return { text: 'Setting up...', emoji: '⏳', color: 'from-yellow-600 to-orange-600' };
       case 'listening':
-        return { text: 'Listening...', icon: '👂', pulseColor: 'bg-green-400' };
+        return { text: 'Listening', emoji: '👂', color: 'from-green-600 to-emerald-600' };
       case 'thinking':
-        return { text: 'Thinking...', icon: '🤔', pulseColor: 'bg-blue-400' };
+        return { text: 'Thinking', emoji: '🤔', color: 'from-blue-600 to-cyan-600' };
       case 'speaking':
-        return { text: 'Speaking...', icon: '🗣️', pulseColor: 'bg-purple-400' };
+        return { text: 'Speaking', emoji: '💬', color: 'from-purple-600 to-pink-600' };
       default:
-        return { text: 'Start Chat', icon: '🎙️', pulseColor: '' };
+        return { text: 'Start', emoji: '🎙️', color: 'from-gray-600 to-gray-700' };
     }
   };
 
@@ -548,7 +644,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     <div className="h-full flex flex-col bg-gradient-to-b from-slate-900 to-purple-900 p-4">
       <div className="max-w-lg mx-auto w-full flex flex-col h-full">
         
-        {/* Header with Avatar */}
+        {/* Header */}
         <div className="text-center mb-4">
           <div className="relative inline-block">
             <div className={`text-6xl mb-2 ${isAISpeaking ? 'animate-bounce' : ''}`}>
@@ -560,48 +656,37 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
               </div>
             )}
           </div>
-          <h2 className="text-2xl font-bold text-white mt-4">
-            {conversationStarted ? `Talking with Diyara` : 'Talk with Diyara'}
-          </h2>
-          <p className="text-sm text-purple-200">
-            {sessionState === 'idle' ? 'Press button to start talking' : currentTranscript || 'Say something...'}
+          <h2 className="text-2xl font-bold text-white">Talk with Diyara</h2>
+          <p className="text-sm text-purple-200 mt-1">
+            {currentTranscript || (sessionState === 'idle' ? 'Press button to start' : 'Say something...')}
           </p>
         </div>
 
-        {/* Messages Container */}
-        <div className="flex-1 bg-black/20 backdrop-blur rounded-2xl p-4 mb-4 overflow-y-auto min-h-0">
-          <div className="space-y-3">
-            {messages.length === 0 && sessionState === 'idle' && (
+        {/* Messages */}
+        <div className="flex-1 bg-black/20 backdrop-blur rounded-2xl p-4 mb-4 overflow-y-auto">
+          <div className="space-y-2">
+            {messages.length === 0 && (
               <div className="text-center text-gray-400 py-8">
-                <p className="text-lg mb-2">🎤 Ready to chat!</p>
-                <p className="text-sm">Press the button below and start talking</p>
+                <p>🎤 Ready to chat!</p>
+                {!speechSupported && (
+                  <p className="text-yellow-400 text-sm mt-2">
+                    ⚠️ Voice not supported. Use the type button below.
+                  </p>
+                )}
               </div>
             )}
             
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${msg.speaker === 'user' ? 'justify-end' : 'justify-start'} animate-fadeIn`}
+                className={`flex ${msg.speaker === 'user' ? 'justify-end' : 'justify-start'}`}
               >
-                <div className={`flex items-start gap-2 max-w-[80%] ${
-                  msg.speaker === 'user' ? 'flex-row-reverse' : 'flex-row'
-                }`}>
-                  <div className="flex-shrink-0 mt-1">
-                    {msg.speaker === 'user' ? '🗣️' : '👧'}
-                  </div>
-                  <div className={`px-4 py-2 rounded-2xl ${
-                    msg.speaker === 'user'
-                      ? 'bg-blue-600 text-white rounded-br-none'
-                      : 'bg-purple-600 text-white rounded-bl-none'
-                  } ${!msg.isFinal ? 'opacity-70' : ''}`}>
-                    <p className="text-sm leading-relaxed">
-                      {msg.text}
-                      {!msg.isFinal && <span className="inline-block w-2 h-4 ml-1 bg-white/50 animate-pulse" />}
-                    </p>
-                    <p className="text-xs opacity-60 mt-1">
-                      {msg.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
+                <div className={`max-w-[80%] px-4 py-2 rounded-2xl ${
+                  msg.speaker === 'user'
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-purple-600 text-white'
+                } ${!msg.isFinal ? 'opacity-70' : ''}`}>
+                  <p>{msg.text}</p>
                 </div>
               </div>
             ))}
@@ -609,67 +694,46 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
           </div>
         </div>
 
-        {/* Error Display */}
+        {/* Error */}
         {error && (
           <div className="bg-red-500/20 border border-red-500 rounded-lg p-3 mb-4">
-            <p className="text-red-300 text-sm text-center">{error}</p>
+            <p className="text-red-300 text-sm">{error}</p>
           </div>
         )}
 
-        {/* Control Button */}
-        <div className="flex flex-col items-center">
-          <div className="relative">
-            {sessionState !== 'idle' && buttonState.pulseColor && (
-              <div className={`absolute inset-0 ${buttonState.pulseColor} rounded-full animate-ping opacity-25`} />
-            )}
-            <button
-              onClick={toggleSession}
-              className={`relative w-24 h-24 rounded-full flex flex-col items-center justify-center transition-all transform hover:scale-105 active:scale-95 ${
-                sessionState === 'idle'
-                  ? 'bg-gradient-to-br from-purple-600 to-pink-600 shadow-lg'
-                  : sessionState === 'listening'
-                  ? 'bg-gradient-to-br from-green-600 to-emerald-600 shadow-green-500/50'
-                  : sessionState === 'thinking'
-                  ? 'bg-gradient-to-br from-blue-600 to-cyan-600 shadow-blue-500/50'
-                  : sessionState === 'speaking'
-                  ? 'bg-gradient-to-br from-purple-600 to-pink-600 shadow-purple-500/50'
-                  : 'bg-gradient-to-br from-yellow-600 to-orange-600'
-              } shadow-2xl`}
-            >
-              <span className="text-3xl mb-1">{buttonState.icon}</span>
-              <span className="text-xs font-bold text-white">{buttonState.text}</span>
-            </button>
-          </div>
+        {/* Controls */}
+        <div className="flex items-center justify-center gap-4">
+          <button
+            onClick={handleManualInput}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+          >
+            📝 Type
+          </button>
           
-          {/* Session Status */}
-          {sessionState !== 'idle' && (
-            <div className="mt-4 flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${
-                sessionState === 'listening' ? 'bg-green-400' : 
-                sessionState === 'thinking' ? 'bg-blue-400' :
-                sessionState === 'speaking' ? 'bg-purple-400' :
-                'bg-yellow-400'
-              } animate-pulse`} />
-              <span className="text-xs text-white/70">
-                {sessionState === 'listening' ? 'Listening to you...' :
-                 sessionState === 'thinking' ? 'Processing...' :
-                 sessionState === 'speaking' ? 'Diyara is talking...' :
-                 'Setting up...'}
-              </span>
-            </div>
+          <button
+            onClick={toggleSession}
+            disabled={sessionState === 'connecting'}
+            className={`relative w-20 h-20 rounded-full flex flex-col items-center justify-center bg-gradient-to-br ${buttonState.color} text-white shadow-lg transition-transform hover:scale-105 active:scale-95 disabled:opacity-50`}
+          >
+            <span className="text-2xl">{buttonState.emoji}</span>
+            <span className="text-xs">{buttonState.text}</span>
+          </button>
+
+          {DEBUG_MODE && (
+            <button
+              onClick={() => console.log({
+                sessionState,
+                isActive: isActiveRef.current,
+                recognition: recognitionRef.current,
+                speechSupported,
+                messages
+              })}
+              className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700"
+            >
+              🐛 Debug
+            </button>
           )}
         </div>
-
-        {/* CSS for animations */}
-        <style jsx>{`
-          @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(10px); }
-            to { opacity: 1; transform: translateY(0); }
-          }
-          .animate-fadeIn {
-            animation: fadeIn 0.3s ease-out;
-          }
-        `}</style>
       </div>
     </div>
   );
