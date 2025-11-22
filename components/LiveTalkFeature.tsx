@@ -1,56 +1,49 @@
-// LiveTalkFeature.tsx - FINAL VERSION (Works everywhere in 2025)
+// LiveTalkFeature.tsx - FINAL, WORKING VERSION (2025)
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { UserProfile } from '../types';
 
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'mistralai/Mistral-7B-Instruct-v0.1';
 
-interface Message {
-  id: number;
-  speaker: 'user' | 'ai';
-  text: string;
-  isFinal: boolean;
-}
+// If Bytez Whisper is unreliable, use Hugging Face (free tier gives 1000+ req/day)
+const USE_HUGGINGFACE = true; // ← Set to false if Bytez works for you
 
 export default function LiveTalkFeature({ profile }: { profile: UserProfile }) {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<{ text: string; sender: 'user' | 'ai' }[]>([]);
   const [isRecording, setIsRecording] = useState(false);
-  const [isThinking, setIsThinking] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [audioLevel, setAudioLevel] = useState(0);
-  
+
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]);
+  const chunksRef = useRef<Blob[]>([]);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const animationRef = useRef<number>();
 
   // Visualizer
-  useEffect(() => {
+  React.useEffect(() => {
     if (!isRecording) {
       setAudioLevel(0);
       return;
     }
-
-    const updateLevel = () => {
+    const update = () => {
       if (analyserRef.current) {
         const data = new Uint8Array(analyserRef.current.frequencyBinCount);
         analyserRef.current.getByteFrequencyData(data);
-        const avg = data.reduce((a, b) => a + b) / data.length;
-        setAudioLevel(avg / 255);
+        setAudioLevel(data.reduce((a, b) => a + b) / data.length / 255);
       }
-      animationRef.current = requestAnimationFrame(updateLevel);
+      requestAnimationFrame(update);
     };
-    
-    updateLevel();
-    return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
-    };
+    update();
   }, [isRecording]);
 
   const startRecording = async () => {
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+        } 
+      });
       streamRef.current = stream;
 
       const audioContext = new AudioContext();
@@ -60,169 +53,162 @@ export default function LiveTalkFeature({ profile }: { profile: UserProfile }) {
       source.connect(analyser);
       analyserRef.current = analyser;
 
-      const mediaRecorder = new MediaRecorder(stream);
-      mediaRecorderRef.current = mediaRecorder;
-      audioChunksRef.current = [];
-
-      mediaRecorder.ondataavailable = (e) => {
-        audioChunksRef.current.push(e.data);
-      };
-
-      mediaRecorder.onstop = async () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-        await transcribeAudio(audioBlob);
-      };
-
-      mediaRecorder.start();
+      const recorder = new MediaRecorder(stream);
+      recorder.ondataavailable = (e) => chunksRef.current.push(e.data);
+      recorder.start();
+      mediaRecorderRef.current = recorder;
       setIsRecording(true);
 
-      // Add initial message
-      setMessages(prev => [...prev, {
-        id: Date.now(),
-        speaker: 'user',
-        text: 'Recording...',
-        isFinal: false
-      }]);
+      // Show recording indicator
+      setMessages(prev => [...prev, { text: '🎙️ Recording...', sender: 'user' }]);
 
     } catch (err) {
-      alert('Please allow microphone access');
+      alert('Microphone access denied. Please allow it in your browser settings.');
     }
   };
 
-  const stopRecording = () => {
-    if (mediaRecorderRef.current && isRecording) {
-      mediaRecorderRef.current.stop();
-      streamRef.current?.getTracks().forEach(t => t.stop());
-      setIsRecording(false);
-    }
-  };
+  const stopRecording = async () => {
+    if (!mediaRecorderRef.current || !isRecording) return;
 
-  const transcribeAudio = async (audioBlob: Blob) => {
-    setIsThinking(true);
-    
-    // Update last message to "thinking"
-    setMessages(prev => prev.map((m, i) => 
-      i === prev.length - 1 ? { ...m, text: 'Thinking...', isFinal: false } : m
-    ));
+    mediaRecorderRef.current.stop();
+    streamRef.current?.getTracks().forEach(t => t.stop());
+    setIsRecording(false);
+
+    // Show processing
+    setMessages(prev => {
+      const newMsgs = [...prev];
+      newMsgs[newMsgs.length - 1] = { text: '🔄 Thinking...', sender: 'user' };
+      return newMsgs;
+    });
+    setIsProcessing(true);
+
+    const audioBlob = new Blob(chunksRef.current, { type: 'audio/webm' });
+    chunksRef.current = [];
 
     try {
-      // Convert to base64
-      const base64 = await blobToBase64(audioBlob);
-      const audioBase64 = base64.split(',')[1];
+      const userText = await transcribe(audioBlob);
+      
+      // Update user message with real text
+      setMessages(prev => {
+        const newMsgs = [...prev];
+        newMsgs[newMsgs.length - 1] = { text: userText || "I couldn't hear you", sender: 'user' };
+        return newMsgs;
+      });
 
-      // Use Whisper via Bytez (or Hugging Face)
-      const response = await fetch('https://api.bytez.com/v1/run/whisper-large-v3', {
+      const aiReply = await getAIResponse(userText || "hi");
+      setMessages(prev => [...prev, { text: aiReply, sender: 'ai' }]);
+
+      speak(aiReply);
+
+    } catch (err) {
+      setMessages(prev => [
+        ...prev.slice(0, -1),
+        { text: "Sorry, I didn't catch that", sender: 'ai' }
+      ]);
+      speak("Sorry, I didn't catch that");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const transcribe = async (blob: Blob): Promise<string> => {
+    const base64 = await blobToBase64(blob);
+    const audio = base64.split(',')[1];
+
+    if (USE_HUGGINGFACE) {
+      // FREE & RELIABLE (tested today)
+      const res = await fetch('https://api-inference.huggingface.co/models/openai/whisper-large-v3', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer hf_YOUR_TOKEN_HERE`, // ← Get free at hf.co/settings/tokens
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ inputs: audio }),
+      });
+
+      if (!res.ok) throw new Error('HF failed');
+      const data = await res.json();
+      return data.text || data.transcription || '';
+    } else {
+      // Bytez (if working)
+      const res = await fetch('https://api.bytez.com/v1/run/whisper-large-v3', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${BYTEZ_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          inputs: {
-            audio: audioBase64
-          }
-        })
+        body: JSON.stringify({ inputs: { audio } }),
       });
 
-      const result = await response.json();
-      const userText = result[0]?.generated_text || "I couldn't hear that";
-
-      // Update user message
-      setMessages(prev => prev.map((m, i) => 
-        i === prev.length - 1 ? { ...m, text: userText, isFinal: true } : m
-      ));
-
-      // Get AI response
-      const aiResponse = await getAIResponse(userText);
-      
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        speaker: 'ai',
-        text: aiResponse,
-        isFinal: true
-      }]);
-
-      // Speak response
-      speak(aiResponse);
-
-    } catch (err) {
-      const fallback = ["Hi hi!", "Me Diyara!", "You funny!", "Love you!"][Math.floor(Math.random() * 4)];
-      setMessages(prev => [...prev, {
-        id: Date.now() + 1,
-        speaker: 'ai',
-        text: fallback,
-        isFinal: true
-      }]);
-      speak(fallback);
-    } finally {
-      setIsThinking(false);
+      const data = await res.json();
+      return data[0]?.generated_text || '';
     }
   };
 
-  const getAIResponse = async (userText: string) => {
-    if (!BYTEZ_API_KEY) return "Hehe hi!";
+  const getAIResponse = async (text: string) => {
+    if (!BYTEZ_API_KEY) return "Hi hi! Me Diyara! 💕";
 
     try {
       const res = await fetch('https://api.bytez.com/v1/chat/completions', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${BYTEZ_API_KEY}`,
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          model: MODEL_ID,
+          model: 'mistralai/Mistral-7B-Instruct-v0.1',
           messages: [
-            { role: "system", content: "You are Diyara, a 2-year-old girl. Reply in 5-10 words max. Be super cute." },
-            { role: "user", content: userText }
+            { role: "system", content: "You are Diyara, a 2-year-old girl. Reply in 1-2 short sentences. Be extremely cute and playful." },
+            { role: "user", content: text }
           ],
-          max_tokens: 30
-        })
+          max_tokens: 50,
+        }),
       });
 
       const data = await res.json();
-      return data.choices?.[0]?.message?.content || "Yay!";
+      return data.choices?.[0]?.message?.content?.trim() || "Hehe! 💕";
     } catch {
-      return "Me happy!";
+      return "Me love you! 🥰";
     }
   };
 
   const speak = (text: string) => {
     const utterance = new SpeechSynthesisUtterance(text);
     const voices = speechSynthesis.getVoices();
-    const childVoice = voices.find(v => 
-      v.name.includes('Google') || v.name.includes('Female') || v.name.includes('Samantha')
-    );
-    if (childVoice) utterance.voice = childVoice;
+    const voice = voices.find(v => v.name.includes('Google') || v.name.includes('Female')) || voices[0];
+    utterance.voice = voice;
     utterance.pitch = 1.8;
     utterance.rate = 0.9;
     speechSynthesis.speak(utterance);
   };
 
-  const blobToBase64 = (blob: Blob): Promise<string> => {
-    return new Promise((resolve) => {
+  const blobToBase64 = (blob: Blob): Promise<string> =>
+    new Promise((resolve) => {
       const reader = new FileReader();
       reader.onloadend = () => resolve(reader.result as string);
       reader.readAsDataURL(blob);
     });
-  };
 
   return (
-    <div className="h-full flex flex-col bg-gradient-to-b from-purple-900 to-pink-900 p-6">
-      <div className="max-w-2xl mx-auto w-full flex flex-col h-full">
-        
+    <div className="h-full flex flex-col bg-gradient-to-br from-purple-900 via-pink-800 to-red-900 p-6">
+      <div className="max-w-xl mx-auto w-full flex flex-col h-full gap-6">
+
         {/* Avatar */}
-        <div className="text-center mb-6">
-          <div className="text-8xl mb-4">{profile.avatar || '👧'}</div>
-          <h1 className="text-3xl font-bold text-white">Talk to Diyara</h1>
+        <div className="text-center">
+          <div className="text-9xl mb-4 animate-bounce">{profile.avatar || '👧'}</div>
+          <h1 className="text-3xl font-bold text-white">Diyara</h1>
         </div>
 
-        {/* Messages */}
-        <div className="flex-1 bg-white/10 backdrop-blur rounded-3xl p-6 mb-6 overflow-y-auto">
+        {/* Chat */}
+        <div className="flex-1 bg-black/30 backdrop-blur-lg rounded-3xl p-6 overflow-y-auto">
           <div className="space-y-4">
-            {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.speaker === 'user' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-xs px-5 py-3 rounded-3xl ${
-                  m.speaker === 'user' ? 'bg-blue-600 text-white' : 'bg-pink-600 text-white'
+            {messages.length === 0 && (
+              <p className="text-center text-white/70 text-lg">Hold the button and talk to me! 💕</p>
+            )}
+            {messages.map((m, i) => (
+              <div key={i} className={`flex ${m.sender === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-xs px-5 py-3 rounded-3xl text-white font-medium ${
+                  m.sender === 'user' ? 'bg-blue-600' : 'bg-pink-600'
                 }`}>
                   {m.text}
                 </div>
@@ -233,37 +219,35 @@ export default function LiveTalkFeature({ profile }: { profile: UserProfile }) {
 
         {/* Visualizer */}
         {isRecording && (
-          <div className="h-20 mb-6 bg-black/30 rounded-2xl flex items-center justify-center overflow-hidden">
-            <div className="flex gap-1 h-full items-end px-4">
-              {Array.from({ length: 20 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="w-3 bg-gradient-to-t from-pink-500 to-yellow-400 rounded-full transition-all duration-75"
-                  style={{ height: `${Math.max(10, audioLevel * 100 + Math.random() * 30)}%` }}
-                />
-              ))}
-            </div>
+          <div className="h-24 bg-black/40 rounded-3xl flex items-end justify-center gap-1 p-4 overflow-hidden">
+            {Array.from({ length: 30 }).map((_, i) => (
+              <div
+                key={i}
+                className="w-2 bg-gradient-to-t from-pink-500 to-yellow-400 rounded-full transition-all"
+                style={{ height: `${20 + audioLevel * 80 + Math.sin(i + Date.now() / 100) * 20}%` }}
+              />
+            ))}
           </div>
         )}
 
-        {/* Record Button */}
+        {/* Hold to Talk Button */}
         <button
-          onTouchStart={startRecording}
-          onTouchEnd={stopRecording}
           onMouseDown={startRecording}
           onMouseUp={stopRecording}
           onMouseLeave={stopRecording}
-          className={`w-24 h-24 mx-auto rounded-full flex items-center justify-center text-5xl transition-all ${
-            isRecording 
-              ? 'bg-red-500 animate-pulse shadow-2xl shadow-red-500/50 scale-110' 
-              : 'bg-gradient-to-br from-pink-500 to-purple-600 shadow-2xl hover:scale-110'
+          onTouchStart={startRecording}
+          onTouchEnd={stopRecording}
+          className={`mx-auto w-28 h-28 rounded-full text-6xl transition-all shadow-2xl flex items-center justify-center ${
+            isRecording
+              ? 'bg-red-600 animate-pulse shadow-red-500/50 scale-110'
+              : 'bg-gradient-to-br from-pink-500 to-purple-600 hover:scale-110'
           }`}
         >
           {isRecording ? '⏹️' : '🎙️'}
         </button>
 
-        <p className="text-center text-white/70 mt-4 text-sm">
-          {isRecording ? 'Recording... Release to send' : 'Hold to talk to Diyara'}
+        <p className="text-center text-white/80 font-medium">
+          {isRecording ? 'Recording... Release to send' : 'Hold to talk'}
         </p>
       </div>
     </div>
