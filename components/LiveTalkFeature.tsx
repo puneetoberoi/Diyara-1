@@ -15,15 +15,18 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
   const [transcript, setTranscript] = useState("Tap my face to talk!");
   const [aiResponse, setAiResponse] = useState("");
   const [error, setError] = useState("");
+  const [speechSupported, setSpeechSupported] = useState(false);
   
   const recognitionRef = useRef<any>(null);
   const synthRef = useRef<SpeechSynthesis>(window.speechSynthesis);
+  const currentTranscriptRef = useRef<string>("");
 
   useEffect(() => {
     // Check for Speech Recognition support
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
     
     if (SpeechRecognition) {
+      setSpeechSupported(true);
       try {
         const recognition = new SpeechRecognition();
         recognition.continuous = false;
@@ -33,19 +36,20 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
         recognition.onresult = (event: any) => {
           const text = event.results[0][0].transcript;
           setTranscript(text);
+          currentTranscriptRef.current = text;
         };
 
         recognition.onend = () => {
           setIsListening(false);
-          const finalTranscript = transcript;
-          if (finalTranscript && finalTranscript.length > 2 && finalTranscript !== "Listening..." && finalTranscript !== "Tap my face to talk!") {
-            handleSendToAI(finalTranscript);
+          const finalText = currentTranscriptRef.current;
+          if (finalText && finalText.length > 2 && finalText !== "Listening...") {
+            handleSendToAI(finalText);
           }
         };
 
         recognition.onerror = (event: any) => {
           console.error('Speech recognition error:', event.error);
-          setError(`Speech error: ${event.error}`);
+          setError(`Error: ${event.error}`);
           setIsListening(false);
           setTranscript("Sorry, couldn't hear you. Try again!");
         };
@@ -53,15 +57,17 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
         recognitionRef.current = recognition;
       } catch (err) {
         console.error('Failed to setup speech recognition:', err);
-        setError("Speech recognition not available");
+        setError("Speech recognition setup failed");
+        setSpeechSupported(false);
       }
     } else {
-      setError("Your browser doesn't support speech recognition");
-      setTranscript("Browser doesn't support speech.");
+      setSpeechSupported(false);
+      setError("Your browser doesn't support speech recognition. Try Chrome or Safari.");
     }
 
-    // Load voices when they're ready
+    // Load voices
     if ('speechSynthesis' in window) {
+      window.speechSynthesis.getVoices();
       window.speechSynthesis.onvoiceschanged = () => {
         window.speechSynthesis.getVoices();
       };
@@ -80,28 +86,38 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     };
   }, []);
 
-  const toggleListening = () => {
-    if (!recognitionRef.current) {
-      setError("Speech recognition not available");
+  const toggleListening = async () => {
+    if (!speechSupported || !recognitionRef.current) {
+      setError("Speech recognition not available. Try using Chrome or Safari browser.");
       return;
     }
 
     if (isListening) {
       try {
         recognitionRef.current.stop();
-      } catch (err) {}
+      } catch (err) {
+        console.error('Stop error:', err);
+      }
       setIsListening(false);
     } else {
       try {
+        // Request microphone permission first
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+        
         synthRef.current.cancel();
         setError("");
+        currentTranscriptRef.current = "";
         recognitionRef.current.start();
         setIsListening(true);
         setTranscript("Listening...");
         setAiResponse("");
       } catch (err: any) {
         console.error('Failed to start listening:', err);
-        setError("Could not start listening. Check microphone permissions.");
+        if (err.name === 'NotAllowedError') {
+          setError("Microphone access denied. Please allow microphone access and try again.");
+        } else {
+          setError("Could not start listening. Check microphone permissions.");
+        }
       }
     }
   };
@@ -109,7 +125,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
   const handleSendToAI = async (textToSend: string) => {
     if (!BYTEZ_API_KEY) {
       setError("API key not configured");
-      setAiResponse("Oopsie! I can't talk right now.");
+      setAiResponse("I can't talk right now. API not set up!");
       return;
     }
 
@@ -117,7 +133,6 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     setError("");
 
     try {
-      // Fixed: Removed brackets from URL
       const response = await fetch('https://api.bytez.com/models/v2/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
@@ -191,7 +206,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     } catch (error: any) {
       console.error('AI Error:', error);
       setError(error.message);
-      setAiResponse("Oopsie! Brain freeze!");
+      setAiResponse("Oopsie! Can't think right now!");
     }
   };
 
@@ -202,38 +217,29 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
     }
     
     try {
-      // Cancel any ongoing speech
       synthRef.current.cancel();
       
       const utterance = new SpeechSynthesisUtterance(text);
       
-      // Get available voices
       const voices = synthRef.current.getVoices();
-      
-      // Try to find a child-like or female voice
       const preferredVoice = voices.find(v => 
-        v.name.toLowerCase().includes('child') ||
-        v.name.toLowerCase().includes('girl') ||
         v.name.toLowerCase().includes('female') ||
         v.name.toLowerCase().includes('zira') ||
-        v.name.toLowerCase().includes('samantha') ||
-        (v.name.includes('Google') && v.name.includes('Female')) ||
-        v.name.includes('Microsoft Zira')
-      ) || voices.find(v => v.lang.startsWith(navigator.language));
+        v.name.toLowerCase().includes('samantha')
+      );
       
       if (preferredVoice) {
         utterance.voice = preferredVoice;
       }
 
-      // Child-like voice settings
-      utterance.pitch = 1.5; // Higher pitch for child voice
-      utterance.rate = 1.0;  // Normal speed
+      utterance.pitch = 1.5;
+      utterance.rate = 1.0;
       utterance.volume = 1.0;
 
       utterance.onstart = () => setIsSpeaking(true);
       utterance.onend = () => setIsSpeaking(false);
       utterance.onerror = (event) => {
-        console.error('Speech synthesis error:', event);
+        console.error('Speech error:', event);
         setIsSpeaking(false);
       };
       
@@ -254,16 +260,25 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
             <p className="text-red-300 text-sm text-center">{error}</p>
           </div>
         )}
+
+        {/* Speech Support Check */}
+        {!speechSupported && (
+          <div className="w-full bg-yellow-500/20 border border-yellow-500 rounded-lg p-3 mb-4">
+            <p className="text-yellow-300 text-sm text-center">
+              Speech not supported. Try Chrome or Safari browser.
+            </p>
+          </div>
+        )}
         
         {/* Interactive Face */}
         <div className="flex-1 flex flex-col items-center justify-center min-h-[300px]">
           <button 
             onClick={toggleListening}
-            disabled={!recognitionRef.current}
+            disabled={!speechSupported}
             className={`relative w-56 h-56 rounded-full flex items-center justify-center transition-all duration-300 outline-none ${
               isSpeaking ? 'scale-110' : 'scale-100'
             } ${isListening ? 'scale-105' : ''} hover:scale-105 active:scale-95 ${
-              !recognitionRef.current ? 'opacity-50 cursor-not-allowed' : ''
+              !speechSupported ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             <div className={`absolute inset-0 rounded-full border-4 border-yellow-400 ${
@@ -282,7 +297,7 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
             </div>
 
             <div className="absolute -top-14 bg-white text-black px-6 py-2 rounded-2xl rounded-br-none font-bold animate-bounce shadow-lg text-lg whitespace-nowrap z-30">
-              {isListening ? "I'm listening..." : isSpeaking ? "Diyara speaking!" : "Tap my face!"}
+              {!speechSupported ? "Not supported!" : isListening ? "I'm listening..." : isSpeaking ? "Diyara speaking!" : "Tap my face!"}
             </div>
           </button>
         </div>
@@ -299,6 +314,13 @@ const LiveTalkFeature: React.FC<LiveTalkProps> = ({ userId, profile }) => {
             {aiResponse ? `"${aiResponse}"` : '...'}
           </p>
         </div>
+
+        {/* Debug Info - Remove in production */}
+        {!BYTEZ_API_KEY && (
+          <div className="mt-4 text-xs text-red-400 text-center">
+            ⚠️ VITE_BYTEZ_API_KEY not set in .env
+          </div>
+        )}
       </div>
     </div>
   );
