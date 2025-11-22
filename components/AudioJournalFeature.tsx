@@ -186,15 +186,14 @@ const AudioJournalFeature: React.FC<JournalProps> = ({ userId, profile }) => {
         .from('audio-journals')
         .getPublicUrl(fileName);
 
-      // Save to database
+      // Save to database - REMOVED duration field
       const { error: dbError } = await supabase
         .from('journal_entries')
         .insert({
           user_id: userId,
           audio_url: publicUrl,
           title: defaultTitle,
-          mood: 'Reflective',
-          duration: Math.round(audioBlob.size / 1000) // Approximate duration
+          mood: 'Reflective'
         });
 
       if (dbError) {
