@@ -8,7 +8,7 @@ interface LiveTalkProps {
 
 // Debug: Log the API key status
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'BELLE-2/Belle-whisper-large-v3-zh';
+const MODEL_ID = 'NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO';
 
 console.log('🔑 API Key loaded:', BYTEZ_API_KEY ? `Yes (${BYTEZ_API_KEY.substring(0, 10)}...)` : 'NO - CHECK .env FILE!');
 
