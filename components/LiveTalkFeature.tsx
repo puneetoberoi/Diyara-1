@@ -8,7 +8,7 @@ interface LiveTalkProps {
 
 // Debug: Log the API key status
 const BYTEZ_API_KEY = import.meta.env.VITE_BYTEZ_API_KEY?.trim();
-const MODEL_ID = 'openai/whisper-large-v3';
+const MODEL_ID = 'BELLE-2/Belle-whisper-large-v3-zh';
 
 console.log('🔑 API Key loaded:', BYTEZ_API_KEY ? `Yes (${BYTEZ_API_KEY.substring(0, 10)}...)` : 'NO - CHECK .env FILE!');
 
