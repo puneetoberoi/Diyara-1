@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
 import SoundButton from './SoundButton';
 import { useAudio } from './AudioManager';
+import { supabase } from './supabaseClient'; // Make sure you have this configured
 
 export interface FamilyProfile {
   id: string;
@@ -144,6 +145,7 @@ const PhotoUploadModal: React.FC<{
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   if (!isOpen || !profile) return null;
 
@@ -158,15 +160,100 @@ const PhotoUploadModal: React.FC<{
     }
   };
 
-  const handleSave = () => {
+  const uploadToSupabase = async (base64Data: string, profileId: string): Promise<string | null> => {
+    try {
+      // Convert base64 to blob
+      const base64Response = await fetch(base64Data);
+      const blob = await base64Response.blob();
+      
+      // Create a unique filename
+      const fileName = `${profileId}_${Date.now()}.${blob.type.split('/')[1] || 'jpg'}`;
+      
+      // First, delete any existing avatar for this profile
+      const { data: existingFiles } = await supabase.storage
+        .from('avatars')
+        .list('', {
+          search: profileId
+        });
+      
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToDelete = existingFiles
+          .filter(file => file.name.startsWith(profileId))
+          .map(file => file.name);
+        
+        if (filesToDelete.length > 0) {
+          await supabase.storage
+            .from('avatars')
+            .remove(filesToDelete);
+        }
+      }
+      
+      // Upload the new file
+      const { data, error } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, blob, {
+          contentType: blob.type,
+          upsert: true
+        });
+      
+      if (error) {
+        console.error('Supabase upload error:', error);
+        return null;
+      }
+      
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName);
+      
+      return publicUrl;
+    } catch (error) {
+      console.error('Failed to upload to Supabase:', error);
+      return null;
+    }
+  };
+
+  const handleSave = async () => {
     if (preview) {
-      onSave(profile.id, preview);
+      setIsUploading(true);
+      
+      // Try to upload to Supabase
+      const supabaseUrl = await uploadToSupabase(preview, profile.id);
+      
+      // Use Supabase URL if available, otherwise fall back to base64 (local storage)
+      const urlToSave = supabaseUrl || preview;
+      
+      onSave(profile.id, urlToSave);
       setPreview(null);
+      setIsUploading(false);
       onClose();
     }
   };
 
-  const handleRemove = () => {
+  const handleRemove = async () => {
+    // Try to remove from Supabase
+    try {
+      const { data: existingFiles } = await supabase.storage
+        .from('avatars')
+        .list('', {
+          search: profile.id
+        });
+      
+      if (existingFiles && existingFiles.length > 0) {
+        const filesToDelete = existingFiles
+          .filter(file => file.name.startsWith(profile.id))
+          .map(file => file.name);
+        
+        if (filesToDelete.length > 0) {
+          await supabase.storage
+            .from('avatars')
+            .remove(filesToDelete);
+        }
+      }
+    } catch (error) {
+      console.error('Failed to remove from Supabase:', error);
+    }
+    
     onSave(profile.id, '');
     setPreview(null);
     onClose();
@@ -209,7 +296,8 @@ const PhotoUploadModal: React.FC<{
         <div className="space-y-2 md:space-y-3">
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="w-full py-3 md:py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2"
+            disabled={isUploading}
+            className="w-full py-3 md:py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -219,7 +307,8 @@ const PhotoUploadModal: React.FC<{
 
           <button
             onClick={() => cameraInputRef.current?.click()}
-            className="w-full py-3 md:py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2"
+            disabled={isUploading}
+            className="w-full py-3 md:py-4 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             <svg className="w-5 h-5 md:w-6 md:h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
@@ -231,16 +320,18 @@ const PhotoUploadModal: React.FC<{
           {preview && (
             <button
               onClick={handleSave}
-              className="w-full py-3 md:py-4 bg-green-600 hover:bg-green-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg"
+              disabled={isUploading}
+              className="w-full py-3 md:py-4 bg-green-600 hover:bg-green-500 text-white font-bold text-sm md:text-base rounded-xl transition-all transform hover:scale-105 active:scale-95 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              💾 Save Photo
+              {isUploading ? '⏳ Uploading...' : '💾 Save Photo'}
             </button>
           )}
 
           {profile.avatarUrl && !preview && (
             <button
               onClick={handleRemove}
-              className="w-full py-2 md:py-3 bg-red-600/80 hover:bg-red-600 text-white font-semibold text-sm md:text-base rounded-xl transition-all"
+              disabled={isUploading}
+              className="w-full py-2 md:py-3 bg-red-600/80 hover:bg-red-600 text-white font-semibold text-sm md:text-base rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               🗑️ Remove Photo
             </button>
@@ -251,7 +342,8 @@ const PhotoUploadModal: React.FC<{
               setPreview(null);
               onClose();
             }}
-            className="w-full py-2 md:py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm md:text-base rounded-xl transition-all"
+            disabled={isUploading}
+            className="w-full py-2 md:py-3 bg-slate-700 hover:bg-slate-600 text-white font-semibold text-sm md:text-base rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {preview ? 'Cancel' : 'Close'}
           </button>
@@ -280,6 +372,58 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   // Play background music when component mounts
   useEffect(() => {
     audio.playBackgroundMusic('profileSelection');
+  }, []);
+
+  // Fetch avatars from Supabase on mount
+  useEffect(() => {
+    const fetchSupabaseAvatars = async () => {
+      try {
+        // Get list of all avatar files
+        const { data: files, error } = await supabase.storage
+          .from('avatars')
+          .list('');
+        
+        if (error) {
+          console.error('Error fetching avatars:', error);
+          return;
+        }
+        
+        if (files && files.length > 0) {
+          // Create a map of profileId to latest avatar URL
+          const avatarMap: Record<string, string> = {};
+          
+          // Group files by profile ID and get the most recent one
+          files.forEach(file => {
+            const profileId = file.name.split('_')[0];
+            if (profileId && profiles.some(p => p.id === profileId)) {
+              // Get public URL for this file
+              const { data: { publicUrl } } = supabase.storage
+                .from('avatars')
+                .getPublicUrl(file.name);
+              
+              // Store the URL (will overwrite with most recent if multiple exist)
+              avatarMap[profileId] = publicUrl;
+            }
+          });
+          
+          // Update profiles with Supabase URLs
+          if (Object.keys(avatarMap).length > 0) {
+            const updatedProfiles = profiles.map(profile => ({
+              ...profile,
+              avatarUrl: avatarMap[profile.id] || profile.avatarUrl
+            }));
+            
+            setProfiles(updatedProfiles);
+            localStorage.setItem('familyProfiles', JSON.stringify(updatedProfiles));
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch Supabase avatars:', error);
+        // Continue with local storage data
+      }
+    };
+    
+    fetchSupabaseAvatars();
   }, []);
 
   // Calculate scale to fit perfectly without scrolling
@@ -577,4 +721,4 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   );
 };
 
-export default ProfileSelection;s
+export default ProfileSelection;
