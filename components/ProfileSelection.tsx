@@ -2,7 +2,23 @@ import React, { useState, useRef, useEffect } from 'react';
 import DiyaMascot from './DiyaMascot';
 import SoundButton from './SoundButton';
 import { useAudio } from './AudioManager';
-import { supabase } from './supabaseClient'; // Make sure you have this configured
+
+// Optional Supabase integration - will fall back to local storage if not configured
+let supabase: any = null;
+try {
+  const { createClient } = require('@supabase/supabase-js');
+  const supabaseUrl = process.env.VITE_SUPABASE_URL;
+  const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
+  
+  if (supabaseUrl && supabaseAnonKey && supabaseUrl !== 'YOUR_SUPABASE_PROJECT_URL') {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('Supabase initialized - avatars will sync across devices');
+  } else {
+    console.log('Supabase not configured - using local storage only');
+  }
+} catch (error) {
+  console.log('Supabase not available - using local storage only');
+}
 
 export interface FamilyProfile {
   id: string;
@@ -161,6 +177,11 @@ const PhotoUploadModal: React.FC<{
   };
 
   const uploadToSupabase = async (base64Data: string, profileId: string): Promise<string | null> => {
+    // If Supabase is not configured, return null to use local storage
+    if (!supabase) {
+      return null;
+    }
+    
     try {
       // Convert base64 to blob
       const base64Response = await fetch(base64Data);
@@ -231,27 +252,29 @@ const PhotoUploadModal: React.FC<{
   };
 
   const handleRemove = async () => {
-    // Try to remove from Supabase
-    try {
-      const { data: existingFiles } = await supabase.storage
-        .from('avatars')
-        .list('', {
-          search: profile.id
-        });
-      
-      if (existingFiles && existingFiles.length > 0) {
-        const filesToDelete = existingFiles
-          .filter(file => file.name.startsWith(profile.id))
-          .map(file => file.name);
+    // Try to remove from Supabase if available
+    if (supabase) {
+      try {
+        const { data: existingFiles } = await supabase.storage
+          .from('avatars')
+          .list('', {
+            search: profile.id
+          });
         
-        if (filesToDelete.length > 0) {
-          await supabase.storage
-            .from('avatars')
-            .remove(filesToDelete);
+        if (existingFiles && existingFiles.length > 0) {
+          const filesToDelete = existingFiles
+            .filter(file => file.name.startsWith(profile.id))
+            .map(file => file.name);
+          
+          if (filesToDelete.length > 0) {
+            await supabase.storage
+              .from('avatars')
+              .remove(filesToDelete);
+          }
         }
+      } catch (error) {
+        console.error('Failed to remove from Supabase:', error);
       }
-    } catch (error) {
-      console.error('Failed to remove from Supabase:', error);
     }
     
     onSave(profile.id, '');
@@ -377,6 +400,11 @@ const ProfileSelection: React.FC<ProfileSelectionProps> = ({ onSelectProfile }) 
   // Fetch avatars from Supabase on mount
   useEffect(() => {
     const fetchSupabaseAvatars = async () => {
+      // Skip if Supabase is not configured
+      if (!supabase) {
+        return;
+      }
+      
       try {
         // Get list of all avatar files
         const { data: files, error } = await supabase.storage
